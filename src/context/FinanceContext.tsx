@@ -127,25 +127,56 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const cleanBudgets = bdgs.filter((b) => b.user_id !== 'default-user');
       const cleanReminders = rems.filter((r) => r.user_id !== 'default-user');
 
+      let resolvedAccs = cleanAccs;
+      let resolvedTxs = cleanTxs;
+
+      // Hydrate from Supabase if local storage is empty for this user (e.g. new port or device)
+      if (resolvedAccs.length === 0 && isSupabaseConfigured() && supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) {
+            const { data: dbAccs } = await supabase
+              .from('accounts')
+              .select('*')
+              .eq('user_id', session.user.id);
+            if (dbAccs && dbAccs.length > 0) {
+              resolvedAccs = dbAccs;
+              await storage.setCollection('artosku_accounts', dbAccs);
+            }
+
+            const { data: dbTxs } = await supabase
+              .from('transactions')
+              .select('*')
+              .eq('user_id', session.user.id);
+            if (dbTxs && dbTxs.length > 0) {
+              resolvedTxs = dbTxs;
+              await storage.setCollection('artosku_transactions', dbTxs);
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Could not hydrate from Supabase:', fetchErr);
+        }
+      }
+
       // Self-heal: If an account has double balance from previous onboarding duplicate accounting bug
       let needPersistAccounts = false;
-      for (const acc of cleanAccs) {
+      for (const acc of resolvedAccs) {
         if (
           Number(acc.opening_balance) > 0 &&
           Number(acc.current_balance) === Number(acc.opening_balance) * 2 &&
-          cleanTxs.length <= 1
+          resolvedTxs.length <= 1
         ) {
           acc.current_balance = Number(acc.opening_balance);
           needPersistAccounts = true;
         }
       }
       if (needPersistAccounts) {
-        await storage.setCollection('artosku_accounts', cleanAccs);
+        await storage.setCollection('artosku_accounts', resolvedAccs);
       }
 
-      setAccounts(cleanAccs);
+      setAccounts(resolvedAccs);
       setCategories(cats);
-      setTransactions(cleanTxs);
+      setTransactions(resolvedTxs);
       setAssets(cleanAssets);
       setTrades(cleanTrades);
       setReceivables(cleanRecs);
@@ -374,13 +405,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await storage.setCollection('artosku_accounts', [initialAccount]);
 
     // 3. If opening balance > 0, record ONLY the single Initial Balance Transaction
+    let initialTx: Transaction | null = null;
     if (Number(initialAccount.opening_balance) > 0) {
       const txId =
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
           : `tx_init_${Date.now()}`;
 
-      const initialTx: Transaction = {
+      initialTx = {
         id: txId,
         user_id: initialAccount.user_id,
         date: new Date().toISOString(),
@@ -434,6 +466,23 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           is_active: initialAccount.is_active,
           is_archived: initialAccount.is_archived,
         });
+
+        if (initialTx) {
+          await supabase.from('transactions').upsert({
+            id: initialTx.id,
+            user_id: initialAccount.user_id,
+            date: initialTx.date,
+            type: initialTx.type,
+            amount: initialTx.amount,
+            source_account_id: initialTx.source_account_id,
+            destination_account_id: initialTx.destination_account_id,
+            category_id: initialTx.category_id,
+            description: initialTx.description,
+            notes: initialTx.notes,
+            payment_method: initialTx.payment_method,
+            tags: initialTx.tags,
+          });
+        }
 
         await supabase.auth.updateUser({
           data: { onboarding_completed: true },
