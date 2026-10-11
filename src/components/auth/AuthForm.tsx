@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Lock,
   Mail,
@@ -28,8 +28,9 @@ interface AuthFormProps {
   initialMode?: 'login' | 'register';
 }
 
-export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
+function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasCompletedOnboarding } = useFinance();
   const [isSignUp, setIsSignUp] = useState(initialMode === 'register');
   const [fullName, setFullName] = useState('');
@@ -43,6 +44,20 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const [error, setError] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+
+  // Listen for redirected auth errors (e.g., Google account not registered yet)
+  useEffect(() => {
+    const errorParam = searchParams?.get('error');
+    const emailParam = searchParams?.get('email');
+    if (errorParam === 'google_account_not_found') {
+      setError(
+        emailParam
+          ? `Akun Google (${emailParam}) belum terdaftar di ArtosKu. Silakan lakukan pendaftaran akun (Register) terlebih dahulu.`
+          : 'Akun Google ini belum terdaftar di ArtosKu. Silakan lakukan pendaftaran akun (Register) terlebih dahulu.'
+      );
+      setIsSignUp(true);
+    }
+  }, [searchParams]);
 
   const translateAuthError = (errMsg: string) => {
     const lower = errMsg.toLowerCase();
@@ -143,12 +158,18 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     setMessage('');
     setIsLoading(true);
 
+    const intent = isSignUp ? 'register' : 'login';
+
     try {
       if (isSupabaseConfigured() && supabase) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('artosku_auth_intent', intent);
+        }
+
         const { error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
+            redirectTo: `${window.location.origin}/auth/callback?intent=${intent}`,
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
@@ -162,7 +183,7 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setIsLoading(false);
       }
     } catch (err: any) {
-      setError(translateAuthError(err?.message || 'Gagal masuk dengan Google.'));
+      setError(translateAuthError(err?.message || 'Gagal autentikasi dengan Google.'));
       setIsLoading(false);
     }
   };
@@ -415,7 +436,7 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                     />
                   </svg>
-                  <span>Lanjutkan dengan Google</span>
+                  <span>{isSignUp ? 'Daftar dengan Google' : 'Masuk dengan Google'}</span>
                 </Button>
               </>
             ) : (
@@ -503,5 +524,19 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         </Card>
       </div>
     </div>
+  );
+}
+
+export function AuthForm(props: AuthFormProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[80vh] flex items-center justify-center text-xs text-muted-foreground">
+          Memuat formulir autentikasi...
+        </div>
+      }
+    >
+      <AuthFormInner {...props} />
+    </Suspense>
   );
 }
