@@ -175,7 +175,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 pb-10">
       {/* ========================================================
           MOBILE VIEW: Exact Layout Inspired by Fintech Reference
          ======================================================== */}
