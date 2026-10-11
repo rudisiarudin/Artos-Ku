@@ -159,9 +159,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           pathname.startsWith('/auth');
         const isOnboardingRoute = pathname.startsWith('/onboarding');
 
-        // 1. Not Authenticated: Force to /login if trying to access protected routes
+        // 1. Not Authenticated: Force to /login if trying to access dashboard/core app
         if (!authed) {
-          if (!isAuthRoute) {
+          if (!isAuthRoute && !isOnboardingRoute) {
             router.push('/login');
           }
           return;

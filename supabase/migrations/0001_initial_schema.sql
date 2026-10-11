@@ -323,34 +323,42 @@ CREATE INDEX IF NOT EXISTS idx_debts_status ON public.debts(user_id, status);
 -- Automatically creates a profile and starter categories when a user signs up
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-    -- 1. Create Profile
-    INSERT INTO public.profiles (id, email, full_name, currency, locale, timezone)
-    VALUES (
-        new.id,
-        new.email,
-        COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-        'IDR',
-        'id-ID',
-        'Asia/Jakarta'
-    )
-    ON CONFLICT (id) DO NOTHING;
+    BEGIN
+        -- 1. Create Profile
+        INSERT INTO public.profiles (id, email, full_name, currency, locale, timezone)
+        VALUES (
+            new.id,
+            new.email,
+            COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+            'IDR',
+            'id-ID',
+            'Asia/Jakarta'
+        )
+        ON CONFLICT (id) DO NOTHING;
 
-    -- 2. Insert Starter Categories
-    INSERT INTO public.categories (user_id, name, type, icon, color, is_system)
-    VALUES
-        (new.id, 'Gaji & Pendapatan', 'income', 'wallet', '#10B981', true),
-        (new.id, 'Makanan & Minuman', 'expense', 'coffee', '#F59E0B', true),
-        (new.id, 'Transportasi', 'expense', 'car', '#3B82F6', true),
-        (new.id, 'Tagihan & Utilitas', 'expense', 'receipt', '#EF4444', true),
-        (new.id, 'Belanja Kebutuhan', 'expense', 'shopping-bag', '#EC4899', true),
-        (new.id, 'Investasi & Tabungan', 'expense', 'trending-up', '#8B5CF6', true)
-    ON CONFLICT DO NOTHING;
+        -- 2. Insert Starter Categories
+        INSERT INTO public.categories (user_id, name, type, icon, color, is_system)
+        VALUES
+            (new.id, 'Gaji & Pendapatan', 'income', 'wallet', '#10B981', true),
+            (new.id, 'Makanan & Minuman', 'expense', 'coffee', '#F59E0B', true),
+            (new.id, 'Transportasi', 'expense', 'car', '#3B82F6', true),
+            (new.id, 'Tagihan & Utilitas', 'expense', 'receipt', '#EF4444', true),
+            (new.id, 'Belanja Kebutuhan', 'expense', 'shopping-bag', '#EC4899', true),
+            (new.id, 'Investasi & Tabungan', 'expense', 'trending-up', '#8B5CF6', true)
+        ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+        -- Ensures auth signup never fails even if profile or category table has an RLS or schema lock
+        NULL;
+    END;
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
