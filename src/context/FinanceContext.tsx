@@ -127,6 +127,22 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const cleanBudgets = bdgs.filter((b) => b.user_id !== 'default-user');
       const cleanReminders = rems.filter((r) => r.user_id !== 'default-user');
 
+      // Self-heal: If an account has double balance from previous onboarding duplicate accounting bug
+      let needPersistAccounts = false;
+      for (const acc of cleanAccs) {
+        if (
+          Number(acc.opening_balance) > 0 &&
+          Number(acc.current_balance) === Number(acc.opening_balance) * 2 &&
+          cleanTxs.length <= 1
+        ) {
+          acc.current_balance = Number(acc.opening_balance);
+          needPersistAccounts = true;
+        }
+      }
+      if (needPersistAccounts) {
+        await storage.setCollection('artosku_accounts', cleanAccs);
+      }
+
       setAccounts(cleanAccs);
       setCategories(cats);
       setTransactions(cleanTxs);
@@ -148,6 +164,39 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    const checkIsOnboarded = async (currentUser: any): Promise<boolean> => {
+      // 1. Check user metadata from Supabase
+      if (currentUser?.user_metadata?.onboarding_completed) {
+        return true;
+      }
+
+      // 2. Check localStorage flags
+      if (typeof window !== 'undefined') {
+        if (localStorage.getItem('artosku_onboarding_completed') === 'true') return true;
+        if (currentUser?.id && localStorage.getItem(`artosku_onboarded_${currentUser.id}`) === 'true') return true;
+      }
+
+      // 3. Check existing accounts in IndexedDB / local storage
+      const localAccs = await storage.getAccounts();
+      const validAccs = localAccs.filter((a) => a.user_id !== 'default-user');
+      if (validAccs.length > 0) {
+        return true;
+      }
+
+      // 4. Check Supabase accounts table if connected
+      if (isSupabaseConfigured() && supabase && currentUser?.id) {
+        try {
+          const { count } = await supabase
+            .from('accounts')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', currentUser.id);
+          if ((count ?? 0) > 0) return true;
+        } catch {}
+      }
+
+      return false;
+    };
+
     const evaluateAuth = async () => {
       try {
         let authUser = null;
@@ -156,7 +205,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           authUser = session?.user || null;
         }
 
-        const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
+        const onboarded = await checkIsOnboarded(authUser);
 
         if (!isMounted) return;
 
@@ -212,10 +261,16 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           }
           router.push('/login');
         } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
+          const onboarded = await checkIsOnboarded(currentUsr);
           setHasCompletedOnboarding(onboarded);
           if (!onboarded) {
-            router.push('/onboarding');
+            if (pathname !== '/onboarding') {
+              router.push('/onboarding');
+            }
+          } else {
+            if (pathname === '/login' || pathname === '/register' || pathname === '/onboarding') {
+              router.push('/');
+            }
           }
         }
       });
@@ -315,13 +370,18 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await storage.clearAllUserData();
 
     // 2. Save ONLY the user's initial account from onboarding
+    // initialAccount.current_balance is already set to opening_balance
     await storage.setCollection('artosku_accounts', [initialAccount]);
-    await storage.saveAccount(initialAccount);
 
     // 3. If opening balance > 0, record ONLY the single Initial Balance Transaction
     if (Number(initialAccount.opening_balance) > 0) {
+      const txId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `tx_init_${Date.now()}`;
+
       const initialTx: Transaction = {
-        id: `tx_init_${Date.now()}`,
+        id: txId,
         user_id: initialAccount.user_id,
         date: new Date().toISOString(),
         type: 'income',
@@ -336,8 +396,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+
+      // CRITICAL FIX FOR DOUBLE BALANCE:
+      // We set the initial transaction collection directly.
+      // We do NOT call storage.addTransaction(initialTx) because initialAccount.current_balance
+      // is ALREADY initialized with opening_balance! Calling addTransaction would add
+      // opening_balance a second time onto current_balance, which caused the double balance bug.
       await storage.setCollection('artosku_transactions', [initialTx]);
-      await storage.addTransaction(initialTx);
     } else {
       await storage.setCollection('artosku_transactions', []);
     }
@@ -352,9 +417,38 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await storage.setCollection('artosku_budgets', []);
     await storage.setCollection('artosku_reminders', []);
 
-    // 5. Mark Onboarding as Completed
+    // 5. If Supabase is connected and user is authenticated, sync to Supabase database
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('accounts').upsert({
+          id: initialAccount.id,
+          user_id: initialAccount.user_id,
+          name: initialAccount.name,
+          type: initialAccount.type,
+          account_number: initialAccount.account_number,
+          institution_name: initialAccount.institution_name,
+          currency: initialAccount.currency,
+          opening_balance: initialAccount.opening_balance,
+          current_balance: initialAccount.current_balance,
+          color: initialAccount.color,
+          is_active: initialAccount.is_active,
+          is_archived: initialAccount.is_archived,
+        });
+
+        await supabase.auth.updateUser({
+          data: { onboarding_completed: true },
+        });
+      } catch (syncErr) {
+        console.warn('Sync to Supabase during onboarding completed with notice:', syncErr);
+      }
+    }
+
+    // 6. Mark Onboarding as Completed in localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('artosku_onboarding_completed', 'true');
+      if (initialAccount.user_id) {
+        localStorage.setItem(`artosku_onboarded_${initialAccount.user_id}`, 'true');
+      }
     }
     setHasCompletedOnboarding(true);
 

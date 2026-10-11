@@ -145,7 +145,14 @@ const QUICK_AMOUNTS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, completeOnboarding } = useFinance();
+  const { user, completeOnboarding, hasCompletedOnboarding } = useFinance();
+
+  // If already onboarded, immediately redirect to dashboard
+  React.useEffect(() => {
+    if (hasCompletedOnboarding) {
+      router.replace('/');
+    }
+  }, [hasCompletedOnboarding, router]);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -199,8 +206,13 @@ export default function OnboardingPage() {
       }
       activeUserId = activeUserId || `user_${Date.now()}`;
 
+      const accountId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `acc_init_${Date.now()}`;
+
       const newAccount: Account = {
-        id: `acc_init_${Date.now()}`,
+        id: accountId,
         user_id: activeUserId,
         name: walletName.trim() || 'Dompet Utama',
         type: walletType,

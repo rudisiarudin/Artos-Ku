@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../lib/db/supabase';
+import { storage } from '../../lib/db/storage';
 import { useFinance } from '../../context/FinanceContext';
 import { BrandLogo } from '../shared/BrandLogo';
 import { Button } from '../ui/button';
@@ -109,14 +110,9 @@ function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
           if (signUpError) throw signUpError;
 
           if (data.session) {
-            const nextRoute = hasCompletedOnboarding ? '/' : '/onboarding';
-            setMessage(
-              hasCompletedOnboarding
-                ? 'Pendaftaran akun berhasil! Mengalihkan ke dasbor...'
-                : 'Pendaftaran akun berhasil! Mengalihkan ke orientasi dompet...'
-            );
+            setMessage('Pendaftaran akun berhasil! Mengalihkan ke orientasi dompet...');
             setTimeout(() => {
-              router.push(nextRoute);
+              router.push('/onboarding');
               router.refresh();
             }, 700);
           } else {
@@ -125,16 +121,39 @@ function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
             );
           }
         } else {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email: email.trim(),
             password,
           });
 
           if (signInError) throw signInError;
 
-          const nextRoute = hasCompletedOnboarding ? '/' : '/onboarding';
+          // Accurately verify if this user already completed onboarding
+          const userObj = signInData?.user;
+          const localAccs = await storage.getAccounts();
+          const hasLocalAccs = localAccs.filter((a) => a.user_id !== 'default-user').length > 0;
+          const isMetadataOnboarded = Boolean(userObj?.user_metadata?.onboarding_completed);
+          const isStoredOnboarded =
+            typeof window !== 'undefined' &&
+            (localStorage.getItem('artosku_onboarding_completed') === 'true' ||
+              Boolean(userObj?.id && localStorage.getItem(`artosku_onboarded_${userObj.id}`) === 'true'));
+
+          let hasDbAccounts = false;
+          if (userObj?.id) {
+            try {
+              const { count } = await supabase
+                .from('accounts')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', userObj.id);
+              hasDbAccounts = (count ?? 0) > 0;
+            } catch {}
+          }
+
+          const isUserOnboarded = isMetadataOnboarded || hasLocalAccs || isStoredOnboarded || hasDbAccounts;
+          const nextRoute = isUserOnboarded ? '/' : '/onboarding';
+
           setMessage(
-            hasCompletedOnboarding
+            isUserOnboarded
               ? 'Login berhasil! Mengalihkan ke dasbor...'
               : 'Login berhasil! Menyiapkan orientasi dompet pertama...'
           );

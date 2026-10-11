@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/db/supabase';
+import { storage } from '../../../lib/db/storage';
 import { BrandLogo } from '../../../components/shared/BrandLogo';
 
 function CallbackContent() {
@@ -45,14 +46,19 @@ function CallbackContent() {
           // User was created during this specific OAuth flow if created within 75 seconds
           const isBrandNewAuthUser = Date.now() - userCreatedAt < 75000;
 
-          // Check if this user already has wallets/accounts setup in ArtosKu database
+          // Check if this user already has wallets/accounts setup in ArtosKu
           const { count: accountCount } = await client
             .from('accounts')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id);
 
+          const localAccs = await storage.getAccounts();
+          const hasLocalAccounts = localAccs.filter((a) => a.user_id !== 'default-user').length > 0;
+          const isMetadataOnboarded = Boolean(user.user_metadata?.onboarding_completed);
           const hasExistingAccounts = (accountCount ?? 0) > 0;
-          const isExistingUser = !isBrandNewAuthUser || hasExistingAccounts;
+
+          const isExistingUser =
+            !isBrandNewAuthUser || hasExistingAccounts || hasLocalAccounts || isMetadataOnboarded;
 
           // RULE: Jika akun belum ada di ArtosKu, login via Google harus register dulu
           if (intent === 'login' && !isExistingUser) {
@@ -72,8 +78,11 @@ function CallbackContent() {
           // Allowed: either existing user logging in, or user registering with Google
           const onboarded =
             hasExistingAccounts ||
+            hasLocalAccounts ||
+            isMetadataOnboarded ||
             (typeof window !== 'undefined' &&
-              localStorage.getItem('artosku_onboarding_completed') === 'true');
+              (localStorage.getItem('artosku_onboarding_completed') === 'true' ||
+                localStorage.getItem(`artosku_onboarded_${user.id}`) === 'true'));
 
           if (isMounted) {
             router.push(onboarded ? '/' : '/onboarding');
