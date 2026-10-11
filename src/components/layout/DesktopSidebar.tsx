@@ -142,7 +142,7 @@ export function DesktopSidebar() {
               {user?.user_metadata?.full_name || user?.email || 'Mode Demo'}
             </p>
             <p className="truncate text-[10px] text-muted-foreground">
-              {user ? 'Akun Supabase Aktif' : 'Klik untuk Masuk'}
+              {user ? 'Akun Aktif' : 'Klik untuk Masuk'}
             </p>
           </div>
         </Link>

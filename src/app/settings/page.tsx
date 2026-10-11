@@ -261,7 +261,7 @@ export default function SettingsPage() {
               <Link href="/login">
                 <Button size="sm" className="gap-1.5 text-xs rounded-xl font-bold">
                   <User className="h-3.5 w-3.5" />
-                  <span>Masuk Akun Supabase</span>
+                  <span>Masuk ke Akun</span>
                 </Button>
               </Link>
             )}
