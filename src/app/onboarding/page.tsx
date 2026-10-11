@@ -30,7 +30,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';
-import { BcaLogo } from '../../components/shared/BankLogos';
+import { BcaLogo, MandiriLogo, GopayLogo } from '../../components/shared/BankLogos';
 
 interface WalletPreset {
   id: string;
@@ -80,8 +80,8 @@ const WALLET_PRESETS: WalletPreset[] = [
     shortName: 'GoPay',
     institution: 'GoTo Financial',
     type: 'ewallet',
-    gradient: 'from-[#005C0B] via-[#008A11] to-[#003D06]',
-    colorHex: '#00AA13',
+    gradient: 'from-[#005C8A] via-[#0081A7] to-[#003852]',
+    colorHex: '#00AED6',
     badge: 'GOPAY',
   },
   {
@@ -235,6 +235,10 @@ export default function OnboardingPage() {
           <div className="flex items-center gap-2">
             {selectedPreset.id === 'bca' ? (
               <BcaLogo className="h-6" />
+            ) : selectedPreset.id === 'mandiri' ? (
+              <MandiriLogo className="h-6" />
+            ) : selectedPreset.id === 'gopay' ? (
+              <GopayLogo className="h-6" />
             ) : (
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
                 <Wallet className="h-4 w-4 text-white" />
@@ -481,6 +485,10 @@ export default function OnboardingPage() {
                     >
                       {preset.id === 'bca' ? (
                         <BcaLogo className="h-4 my-0.5" />
+                      ) : preset.id === 'mandiri' ? (
+                        <MandiriLogo className="h-4 my-0.5" />
+                      ) : preset.id === 'gopay' ? (
+                        <GopayLogo className="h-4 my-0.5" />
                       ) : (
                         <span className="text-xs font-bold leading-tight">{preset.shortName}</span>
                       )}
