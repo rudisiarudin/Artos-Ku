@@ -21,6 +21,8 @@ function CallbackContent() {
           return;
         }
 
+        const client = supabase;
+
         // 1. Identify intent (login vs register) from URL query or localStorage
         const queryIntent = searchParams.get('intent');
         const storedIntent =
@@ -44,7 +46,7 @@ function CallbackContent() {
           const isBrandNewAuthUser = Date.now() - userCreatedAt < 75000;
 
           // Check if this user already has wallets/accounts setup in ArtosKu database
-          const { count: accountCount } = await supabase
+          const { count: accountCount } = await client
             .from('accounts')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id);
@@ -55,7 +57,7 @@ function CallbackContent() {
           // RULE: Jika akun belum ada di ArtosKu, login via Google harus register dulu
           if (intent === 'login' && !isExistingUser) {
             // Revoke current session so user is not logged in
-            await supabase.auth.signOut();
+            await client.auth.signOut();
 
             if (isMounted) {
               setErrorMessage('Akun belum terdaftar. Mengalihkan ke halaman registrasi...');
@@ -83,7 +85,7 @@ function CallbackContent() {
         const {
           data: { session },
           error: sessionError,
-        } = await supabase.auth.getSession();
+        } = await client.auth.getSession();
 
         if (sessionError) throw sessionError;
 
@@ -95,7 +97,7 @@ function CallbackContent() {
         // Listen for token exchange event from Supabase OAuth
         const {
           data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+        } = client.auth.onAuthStateChange(async (event, currentSession) => {
           if (currentSession && isMounted) {
             await handleUserSession(currentSession);
           }

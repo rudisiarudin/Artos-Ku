@@ -103,6 +103,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     try {
+      await storage.purgeDummyData();
+
       const [accs, cats, txs, asts, trds, recs, dbts, bdgs, rems] = await Promise.all([
         storage.getAccounts(),
         storage.getCategories(),
@@ -115,15 +117,25 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         storage.getReminders(),
       ]);
 
-      setAccounts(accs);
+      // Filter out any default-user legacy data
+      const cleanAccs = accs.filter((a) => a.user_id !== 'default-user');
+      const cleanTxs = txs.filter((t) => t.user_id !== 'default-user');
+      const cleanAssets = asts.filter((a) => a.user_id !== 'default-user');
+      const cleanTrades = trds.filter((t) => t.user_id !== 'default-user');
+      const cleanRecs = recs.filter((r) => r.user_id !== 'default-user');
+      const cleanDebts = dbts.filter((d) => d.user_id !== 'default-user');
+      const cleanBudgets = bdgs.filter((b) => b.user_id !== 'default-user');
+      const cleanReminders = rems.filter((r) => r.user_id !== 'default-user');
+
+      setAccounts(cleanAccs);
       setCategories(cats);
-      setTransactions(txs);
-      setAssets(asts);
-      setTrades(trds);
-      setReceivables(recs);
-      setDebts(dbts);
-      setBudgets(bdgs);
-      setReminders(rems);
+      setTransactions(cleanTxs);
+      setAssets(cleanAssets);
+      setTrades(cleanTrades);
+      setReceivables(cleanRecs);
+      setDebts(cleanDebts);
+      setBudgets(cleanBudgets);
+      setReminders(cleanReminders);
 
       const queue = await getSyncQueue();
       setPendingSyncCount(queue.length);
@@ -299,10 +311,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeOnboarding = async (initialAccount: Account) => {
-    // 1. Save Initial Account
+    // 1. Wipe all previous dummy/demo data completely
+    await storage.clearAllUserData();
+
+    // 2. Save ONLY the user's initial account from onboarding
+    await storage.setCollection('artosku_accounts', [initialAccount]);
     await storage.saveAccount(initialAccount);
 
-    // 2. If opening balance > 0, record Initial Opening Balance Transaction
+    // 3. If opening balance > 0, record ONLY the single Initial Balance Transaction
     if (Number(initialAccount.opening_balance) > 0) {
       const initialTx: Transaction = {
         id: `tx_init_${Date.now()}`,
@@ -320,10 +336,23 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+      await storage.setCollection('artosku_transactions', [initialTx]);
       await storage.addTransaction(initialTx);
+    } else {
+      await storage.setCollection('artosku_transactions', []);
     }
 
-    // 3. Mark Onboarding as Completed
+    // 4. Ensure all other models are strictly empty
+    await storage.setCollection('artosku_assets', []);
+    await storage.setCollection('artosku_trades', []);
+    await storage.setCollection('artosku_receivables', []);
+    await storage.setCollection('artosku_receivable_payments', []);
+    await storage.setCollection('artosku_debts', []);
+    await storage.setCollection('artosku_debt_payments', []);
+    await storage.setCollection('artosku_budgets', []);
+    await storage.setCollection('artosku_reminders', []);
+
+    // 5. Mark Onboarding as Completed
     if (typeof window !== 'undefined') {
       localStorage.setItem('artosku_onboarding_completed', 'true');
     }

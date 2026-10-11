@@ -23,6 +23,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { supabase, isSupabaseConfigured } from '../../lib/db/supabase';
 import { Account, AccountType } from '../../lib/db/types';
 import { BrandLogo } from '../../components/shared/BrandLogo';
 import { Button } from '../../components/ui/button';
@@ -191,9 +192,16 @@ export default function OnboardingPage() {
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     try {
+      let activeUserId = user?.id;
+      if (!activeUserId && isSupabaseConfigured() && supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        activeUserId = session?.user?.id;
+      }
+      activeUserId = activeUserId || `user_${Date.now()}`;
+
       const newAccount: Account = {
         id: `acc_init_${Date.now()}`,
-        user_id: user?.id || 'default-user',
+        user_id: activeUserId,
         name: walletName.trim() || 'Dompet Utama',
         type: walletType,
         account_number: accountNumber.trim() || null,

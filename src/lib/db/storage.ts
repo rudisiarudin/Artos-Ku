@@ -44,19 +44,23 @@ class ArtosKuStorage {
     return typeof window !== 'undefined';
   }
 
-  // Load collection with fallback to seed data
-  async getCollection<T>(key: string, defaultData: T[]): Promise<T[]> {
+  // Load collection with fallback
+  async getCollection<T>(key: string, defaultData: T[] = []): Promise<T[]> {
     if (!this.isClient()) return defaultData;
     try {
       const fromIdb = await idbGet<T[]>(key);
-      if (fromIdb && Array.isArray(fromIdb) && fromIdb.length > 0) {
+      if (fromIdb !== undefined && Array.isArray(fromIdb)) {
         return fromIdb;
       }
       const fromLocal = localStorage.getItem(key);
-      if (fromLocal) {
-        const parsed = JSON.parse(fromLocal);
-        await idbSet(key, parsed);
-        return parsed;
+      if (fromLocal !== null) {
+        try {
+          const parsed = JSON.parse(fromLocal);
+          if (Array.isArray(parsed)) {
+            await idbSet(key, parsed);
+            return parsed;
+          }
+        } catch {}
       }
     } catch (err) {
       console.warn('Storage read failed', err);
@@ -76,9 +80,59 @@ class ArtosKuStorage {
     }
   }
 
+  // Clear all data for a clean account state
+  async clearAllUserData(): Promise<void> {
+    if (!this.isClient()) return;
+    await Promise.all([
+      this.setCollection(STORAGE_KEYS.ACCOUNTS, []),
+      this.setCollection(STORAGE_KEYS.TRANSACTIONS, []),
+      this.setCollection(STORAGE_KEYS.ASSETS, []),
+      this.setCollection(STORAGE_KEYS.TRADES, []),
+      this.setCollection(STORAGE_KEYS.RECEIVABLES, []),
+      this.setCollection(STORAGE_KEYS.REC_PAYMENTS, []),
+      this.setCollection(STORAGE_KEYS.DEBTS, []),
+      this.setCollection(STORAGE_KEYS.DEBT_PAYMENTS, []),
+      this.setCollection(STORAGE_KEYS.BUDGETS, []),
+      this.setCollection(STORAGE_KEYS.REMINDERS, []),
+    ]);
+  }
+
+  // Purge any contaminated seed demo records from earlier demo sessions
+  async purgeDummyData(): Promise<void> {
+    if (!this.isClient()) return;
+    const cleanList = async (key: string) => {
+      try {
+        let list = await idbGet<any[]>(key);
+        if (!list) {
+          const raw = localStorage.getItem(key);
+          if (raw) list = JSON.parse(raw);
+        }
+        if (Array.isArray(list)) {
+          const filtered = list.filter((item) => item.user_id !== 'default-user');
+          if (filtered.length !== list.length) {
+            await this.setCollection(key, filtered);
+          }
+        }
+      } catch (err) {
+        console.warn('purgeDummyData key failed', key, err);
+      }
+    };
+
+    await Promise.all([
+      cleanList(STORAGE_KEYS.ACCOUNTS),
+      cleanList(STORAGE_KEYS.TRANSACTIONS),
+      cleanList(STORAGE_KEYS.ASSETS),
+      cleanList(STORAGE_KEYS.TRADES),
+      cleanList(STORAGE_KEYS.RECEIVABLES),
+      cleanList(STORAGE_KEYS.DEBTS),
+      cleanList(STORAGE_KEYS.BUDGETS),
+      cleanList(STORAGE_KEYS.REMINDERS),
+    ]);
+  }
+
   // ACCOUNTS
   async getAccounts(): Promise<Account[]> {
-    return this.getCollection(STORAGE_KEYS.ACCOUNTS, DEFAULT_ACCOUNTS);
+    return this.getCollection(STORAGE_KEYS.ACCOUNTS, []);
   }
 
   async saveAccount(account: Account): Promise<void> {
@@ -101,7 +155,7 @@ class ArtosKuStorage {
 
   // TRANSACTIONS & STRICT FINANCIAL ACCOUNTING
   async getTransactions(): Promise<Transaction[]> {
-    return this.getCollection(STORAGE_KEYS.TRANSACTIONS, DEFAULT_TRANSACTIONS);
+    return this.getCollection(STORAGE_KEYS.TRANSACTIONS, []);
   }
 
   async addTransaction(tx: Transaction): Promise<void> {
@@ -219,7 +273,7 @@ class ArtosKuStorage {
 
   // INVESTMENTS
   async getAssets(): Promise<InvestmentAsset[]> {
-    return this.getCollection(STORAGE_KEYS.ASSETS, DEFAULT_ASSETS);
+    return this.getCollection(STORAGE_KEYS.ASSETS, []);
   }
 
   async saveAsset(asset: InvestmentAsset): Promise<void> {
@@ -230,7 +284,7 @@ class ArtosKuStorage {
   }
 
   async getTrades(): Promise<InvestmentTrade[]> {
-    return this.getCollection(STORAGE_KEYS.TRADES, DEFAULT_TRADES);
+    return this.getCollection(STORAGE_KEYS.TRADES, []);
   }
 
   async addTrade(trade: InvestmentTrade): Promise<void> {
@@ -261,7 +315,7 @@ class ArtosKuStorage {
 
   // RECEIVABLES
   async getReceivables(): Promise<Receivable[]> {
-    return this.getCollection(STORAGE_KEYS.RECEIVABLES, DEFAULT_RECEIVABLES);
+    return this.getCollection(STORAGE_KEYS.RECEIVABLES, []);
   }
 
   async saveReceivable(rec: Receivable): Promise<void> {
@@ -305,7 +359,7 @@ class ArtosKuStorage {
 
   // DEBTS & INSTALLMENTS
   async getDebts(): Promise<Debt[]> {
-    return this.getCollection(STORAGE_KEYS.DEBTS, DEFAULT_DEBTS);
+    return this.getCollection(STORAGE_KEYS.DEBTS, []);
   }
 
   async saveDebt(debt: Debt): Promise<void> {
@@ -352,7 +406,7 @@ class ArtosKuStorage {
 
   // BUDGETS
   async getBudgets(): Promise<Budget[]> {
-    return this.getCollection(STORAGE_KEYS.BUDGETS, DEFAULT_BUDGETS);
+    return this.getCollection(STORAGE_KEYS.BUDGETS, []);
   }
 
   async saveBudget(budget: Budget): Promise<void> {
@@ -364,7 +418,7 @@ class ArtosKuStorage {
 
   // REMINDERS
   async getReminders(): Promise<Reminder[]> {
-    return this.getCollection(STORAGE_KEYS.REMINDERS, DEFAULT_REMINDERS);
+    return this.getCollection(STORAGE_KEYS.REMINDERS, []);
   }
 
   async saveReminder(rem: Reminder): Promise<void> {
