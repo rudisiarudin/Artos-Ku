@@ -30,7 +30,14 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';
-import { BcaLogo, MandiriLogo, GopayLogo } from '../../components/shared/BankLogos';
+import {
+  BcaLogo,
+  MandiriLogo,
+  BriLogo,
+  GopayLogo,
+  DanaLogo,
+  OvoLogo,
+} from '../../components/shared/BankLogos';
 
 interface WalletPreset {
   id: string;
@@ -237,15 +244,21 @@ export default function OnboardingPage() {
               <BcaLogo className="h-6 w-auto" variant="card" />
             ) : selectedPreset.id === 'mandiri' ? (
               <MandiriLogo className="h-5 w-auto" variant="card" />
+            ) : selectedPreset.id === 'bri' ? (
+              <BriLogo className="h-5 w-auto" variant="card" />
             ) : selectedPreset.id === 'gopay' ? (
               <GopayLogo className="h-5 w-auto" variant="card" />
+            ) : selectedPreset.id === 'dana' ? (
+              <DanaLogo className="h-4.5 w-auto" variant="card" />
+            ) : selectedPreset.id === 'ovo' ? (
+              <OvoLogo className="h-4.5 w-auto" variant="card" />
             ) : (
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
                 <Wallet className="h-4 w-4 text-white" />
               </div>
             )}
             <div>
-              {!['bca', 'mandiri', 'gopay'].includes(selectedPreset.id) && (
+              {!['bca', 'mandiri', 'bri', 'gopay', 'dana', 'ovo'].includes(selectedPreset.id) && (
                 <span className="text-xs font-black tracking-wider uppercase text-white/95 drop-shadow-xs">
                   {selectedPreset.badge}
                 </span>
@@ -489,8 +502,14 @@ export default function OnboardingPage() {
                         <BcaLogo className="h-4.5 w-auto my-0.5" variant="color" />
                       ) : preset.id === 'mandiri' ? (
                         <MandiriLogo className="h-4 w-auto my-0.5" variant="color" />
+                      ) : preset.id === 'bri' ? (
+                        <BriLogo className="h-4 w-auto my-0.5" variant="color" />
                       ) : preset.id === 'gopay' ? (
                         <GopayLogo className="h-3.5 w-auto my-0.5" variant="color" />
+                      ) : preset.id === 'dana' ? (
+                        <DanaLogo className="h-4 w-auto my-0.5" variant="color" />
+                      ) : preset.id === 'ovo' ? (
+                        <OvoLogo className="h-3.5 w-auto my-0.5" variant="color" />
                       ) : (
                         <span className="text-xs font-bold leading-tight">{preset.shortName}</span>
                       )}

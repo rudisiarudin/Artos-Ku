@@ -150,17 +150,10 @@ export function PhysicalWalletDeck() {
             <div className="flex items-center gap-2">
               {(() => {
                 const searchStr = `${currentAccount.name} ${currentAccount.institution_name || ''}`;
-                const lower = searchStr.toLowerCase();
-                const hasBrandLogo =
-                  lower.includes('bca') ||
-                  lower.includes('central asia') ||
-                  lower.includes('mandiri') ||
-                  lower.includes('gopay') ||
-                  lower.includes('go-pay') ||
-                  lower.includes('goto');
+                const brandLogo = InstitutionLogo({ name: searchStr, className: 'h-6 w-auto', variant: 'card' });
 
-                if (hasBrandLogo) {
-                  return <InstitutionLogo name={searchStr} className="h-6 w-auto" variant="card" />;
+                if (brandLogo) {
+                  return brandLogo;
                 }
 
                 return (

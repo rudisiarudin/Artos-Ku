@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface LogoProps {
+export interface LogoProps {
   className?: string;
   variant?: 'card' | 'color' | 'auto';
   alt?: string;
@@ -8,8 +8,6 @@ interface LogoProps {
 
 /**
  * Official Bank Central Asia (BCA) Logo
- * - variant 'card': seamless pure white vector logo printed directly on the card (no border, no box)
- * - variant 'color': official blue vector logo on transparent background
  */
 export function BcaLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
   const isCard = variant === 'card';
@@ -28,8 +26,6 @@ export function BcaLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProp
 
 /**
  * Official Bank Mandiri Logo
- * - variant 'card': white text + golden ribbon on transparent background (no border, no box)
- * - variant 'color': official blue text + golden ribbon on transparent background
  */
 export function MandiriLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
   const isCard = variant === 'card';
@@ -50,9 +46,25 @@ export function MandiriLogo({ className = 'h-5 w-auto', variant = 'auto' }: Logo
 }
 
 /**
+ * Official Bank Rakyat Indonesia (BRI) Logo
+ */
+export function BriLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/bri-white.svg' : '/logos/bri.svg';
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Bank BRI"
+      className={`max-h-5 w-auto object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+    />
+  );
+}
+
+/**
  * Official GoPay Logo
- * - variant 'card': cyan circle + white text on transparent background (no border, no box)
- * - variant 'color': cyan circle + black text on transparent background
  */
 export function GopayLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
   const isCard = variant === 'card';
@@ -73,7 +85,44 @@ export function GopayLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoPr
 }
 
 /**
+ * Official DANA Logo
+ */
+export function DanaLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/dana-white.svg' : '/logos/dana.svg';
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="DANA"
+      className={`object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+    />
+  );
+}
+
+/**
+ * Official OVO Logo
+ */
+export function OvoLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/ovo-white.svg' : '/logos/ovo.svg';
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="OVO"
+      className={`object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+    />
+  );
+}
+
+/**
  * Smart Institution Logo Resolver
+ * Automatically resolves and renders the official borderless logo for Indonesian banks & wallets
  */
 export function InstitutionLogo({
   name,
@@ -94,8 +143,20 @@ export function InstitutionLogo({
     return <MandiriLogo className={className} variant={variant} />;
   }
 
+  if (lower.includes('bri') || lower.includes('rakyat indonesia') || lower.includes('britama')) {
+    return <BriLogo className={className} variant={variant} />;
+  }
+
   if (lower.includes('gopay') || lower.includes('go-pay') || lower.includes('goto')) {
     return <GopayLogo className={className} variant={variant} />;
+  }
+
+  if (lower.includes('dana')) {
+    return <DanaLogo className={className} variant={variant} />;
+  }
+
+  if (lower.includes('ovo')) {
+    return <OvoLogo className={className} variant={variant} />;
   }
 
   return null;
