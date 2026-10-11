@@ -6,6 +6,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';
 import { Account } from '../../lib/db/types';
+import { BcaLogo } from '../shared/BankLogos';
 
 export function PhysicalWalletDeck() {
   const { accounts, isPrivacyMode, togglePrivacyMode, setActiveModal } = useFinance();
@@ -147,9 +148,14 @@ export function PhysicalWalletDeck() {
           {/* Top row of card */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
-                <Wallet className="h-4 w-4 text-white" />
-              </div>
+              {currentAccount.name.toLowerCase().includes('bca') ||
+              currentAccount.institution_name?.toLowerCase().includes('bca') ? (
+                <BcaLogo className="h-6" />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
+                  <Wallet className="h-4 w-4 text-white" />
+                </div>
+              )}
               <span className="text-xs font-semibold tracking-wide text-white/90">
                 {currentAccount.name}
               </span>

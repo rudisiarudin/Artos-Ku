@@ -30,6 +30,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';
+import { BcaLogo } from '../../components/shared/BankLogos';
 
 interface WalletPreset {
   id: string;
@@ -232,9 +233,13 @@ export default function OnboardingPage() {
         {/* Card Top: Bank Brand & NFC */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
-              <Wallet className="h-4 w-4 text-white" />
-            </div>
+            {selectedPreset.id === 'bca' ? (
+              <BcaLogo className="h-6" />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
+                <Wallet className="h-4 w-4 text-white" />
+              </div>
+            )}
             <div>
               <span className="text-xs font-black tracking-wider uppercase text-white/95 drop-shadow-xs">
                 {selectedPreset.badge}
@@ -474,7 +479,11 @@ export default function OnboardingPage() {
                           : 'border-border/80 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
                       )}
                     >
-                      <span className="text-xs font-bold leading-tight">{preset.shortName}</span>
+                      {preset.id === 'bca' ? (
+                        <BcaLogo className="h-4 my-0.5" />
+                      ) : (
+                        <span className="text-xs font-bold leading-tight">{preset.shortName}</span>
+                      )}
                       <span className="text-[9px] uppercase tracking-wider opacity-75">{preset.type}</span>
                     </button>
                   );
