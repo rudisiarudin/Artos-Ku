@@ -30,7 +30,7 @@ interface AuthFormProps {
 
 export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const router = useRouter();
-  const { setDemoMode, hasCompletedOnboarding } = useFinance();
+  const { hasCompletedOnboarding } = useFinance();
   const [isSignUp, setIsSignUp] = useState(initialMode === 'register');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -129,7 +129,7 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           }, 600);
         }
       } else {
-        setDemoMode();
+        setError('Koneksi Supabase belum terkonfigurasi pada file .env.');
       }
     } catch (err: any) {
       setError(translateAuthError(err?.message || 'Gagal memproses autentikasi.'));
@@ -347,29 +347,6 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </form>
-
-                {/* Divider */}
-                <div className="relative my-5">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="bg-card px-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Atau Masuk Cepat
-                    </span>
-                  </div>
-                </div>
-
-                {/* Quick Demo Mode */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDemoMode()}
-                  className="w-full gap-2 rounded-xl py-2.5 text-xs font-semibold hover:bg-muted"
-                >
-                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Jelajahi Langsung (Mode Demo)</span>
-                </Button>
               </>
             ) : (
               /* Forgot Password Reset Form */

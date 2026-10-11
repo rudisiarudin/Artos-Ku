@@ -134,12 +134,12 @@ export function DesktopSidebar() {
                 ? user.user_metadata.full_name.substring(0, 2).toUpperCase()
                 : user?.email
                 ? user.email.substring(0, 2).toUpperCase()
-                : 'DM'}
+                : 'AK'}
             </AvatarFallback>
           </Avatar>
           <div className="overflow-hidden">
             <p className="truncate text-xs font-bold text-foreground">
-              {user?.user_metadata?.full_name || user?.email || 'Mode Demo'}
+              {user?.user_metadata?.full_name || user?.email || 'Pengguna'}
             </p>
             <p className="truncate text-[10px] text-muted-foreground">
               {user ? 'Akun Aktif' : 'Klik untuk Masuk'}

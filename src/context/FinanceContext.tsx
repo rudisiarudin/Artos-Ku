@@ -53,7 +53,6 @@ interface FinanceContextType {
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
   logout: () => Promise<void>;
-  setDemoMode: () => void;
   completeOnboarding: (account: Account) => Promise<void>;
   resetOnboarding: () => void;
   // Actions
@@ -145,12 +144,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           authUser = session?.user || null;
         }
 
-        const isDemo = typeof window !== 'undefined' && localStorage.getItem('artosku_demo_session') === 'true';
         const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
 
         if (!isMounted) return;
 
-        const authed = Boolean(authUser || isDemo);
+        const authed = Boolean(authUser);
         setUser(authUser);
         setIsAuthenticated(authed);
         setHasCompletedOnboarding(onboarded);
@@ -292,29 +290,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   // Auth & Onboarding Handlers
   const logout = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('artosku_demo_session');
-    }
     if (isSupabaseConfigured() && supabase) {
       await supabase.auth.signOut();
     }
     setUser(null);
     setIsAuthenticated(false);
     router.push('/login');
-  };
-
-  const setDemoMode = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('artosku_demo_session', 'true');
-    }
-    setIsAuthenticated(true);
-    const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
-    setHasCompletedOnboarding(onboarded);
-    if (!onboarded) {
-      router.push('/onboarding');
-    } else {
-      router.push('/');
-    }
   };
 
   const completeOnboarding = async (initialAccount: Account) => {
@@ -482,7 +463,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         hasCompletedOnboarding,
         logout,
-        setDemoMode,
         completeOnboarding,
         resetOnboarding,
         // Actions

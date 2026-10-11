@@ -229,7 +229,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-semibold text-foreground">Akun & Sesi Pengguna</h3>
               <p className="text-xs text-muted-foreground">
-                {user ? `Masuk sebagai: ${user.email}` : 'Beroperasi dalam Mode Demo / Lokal'}
+                {user ? `Masuk sebagai: ${user.email}` : 'Belum masuk ke akun'}
               </p>
             </div>
           </div>
@@ -650,14 +650,14 @@ export default function SettingsPage() {
           <Button
             variant="destructive"
             onClick={() => {
-              if (confirm('PERINGATAN: Apakah Anda yakin ingin mereset seluruh data kembali ke data contoh bawaan?')) {
+              if (confirm('PERINGATAN: Apakah Anda yakin ingin mereset seluruh data kembali ke pengaturan awal?')) {
                 resetDemoData();
               }
             }}
             className="gap-2"
           >
             <RotateCcw className="h-4 w-4" />
-            <span>Reset ke Data Demo Bawaan</span>
+            <span>Reset ke Pengaturan Awal</span>
           </Button>
         </div>
       </Card>
