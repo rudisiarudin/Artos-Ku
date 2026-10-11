@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../lib/db/supabase';
+import { useFinance } from '../../context/FinanceContext';
 import { BrandLogo } from '../shared/BrandLogo';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -29,6 +30,7 @@ interface AuthFormProps {
 
 export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const router = useRouter();
+  const { setDemoMode, hasCompletedOnboarding } = useFinance();
   const [isSignUp, setIsSignUp] = useState(initialMode === 'register');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -92,11 +94,16 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           if (signUpError) throw signUpError;
 
           if (data.session) {
-            setMessage('Pendaftaran akun berhasil! Mengalihkan ke dasbor...');
+            const nextRoute = hasCompletedOnboarding ? '/' : '/onboarding';
+            setMessage(
+              hasCompletedOnboarding
+                ? 'Pendaftaran akun berhasil! Mengalihkan ke dasbor...'
+                : 'Pendaftaran akun berhasil! Mengalihkan ke orientasi dompet...'
+            );
             setTimeout(() => {
-              router.push('/');
+              router.push(nextRoute);
               router.refresh();
-            }, 800);
+            }, 700);
           } else {
             setMessage(
               'Pendaftaran berhasil! Tautan konfirmasi telah dikirim ke email Anda. Silakan cek kotak masuk Anda.'
@@ -110,17 +117,19 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
 
           if (signInError) throw signInError;
 
-          setMessage('Login berhasil! Mengalihkan ke dasbor...');
+          const nextRoute = hasCompletedOnboarding ? '/' : '/onboarding';
+          setMessage(
+            hasCompletedOnboarding
+              ? 'Login berhasil! Mengalihkan ke dasbor...'
+              : 'Login berhasil! Menyiapkan orientasi dompet pertama...'
+          );
           setTimeout(() => {
-            router.push('/');
+            router.push(nextRoute);
             router.refresh();
           }, 600);
         }
       } else {
-        setMessage('Database offline/demo aktif. Mengalihkan ke dasbor...');
-        setTimeout(() => {
-          router.push('/');
-        }, 600);
+        setDemoMode();
       }
     } catch (err: any) {
       setError(translateAuthError(err?.message || 'Gagal memproses autentikasi.'));
@@ -368,7 +377,7 @@ export function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/')}
+                  onClick={() => setDemoMode()}
                   className="w-full gap-2 rounded-xl py-2.5 text-xs font-semibold hover:bg-muted"
                 >
                   <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />

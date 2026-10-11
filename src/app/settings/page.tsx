@@ -19,7 +19,11 @@ import {
   HelpCircle,
   RefreshCw,
   ExternalLink,
+  User,
+  LogOut,
+  Compass,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useFinance } from '../../context/FinanceContext';
 import { isSupabaseConfigured } from '../../lib/db/supabase';
@@ -38,7 +42,7 @@ import {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { categories, saveCategory, resetDemoData, refreshData } = useFinance();
+  const { categories, saveCategory, resetDemoData, refreshData, user, logout, resetOnboarding } = useFinance();
 
   const [supabaseConnected] = useState(isSupabaseConfigured());
   const [newCatName, setNewCatName] = useState('');
@@ -214,6 +218,56 @@ export default function SettingsPage() {
           {statusMessage}
         </div>
       )}
+
+      {/* User Account & Sesi Pengguna */}
+      <Card className="p-5 shadow-sm space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <User className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Akun & Sesi Pengguna</h3>
+              <p className="text-xs text-muted-foreground">
+                {user ? `Masuk sebagai: ${user.email}` : 'Beroperasi dalam Mode Demo / Lokal'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetOnboarding}
+              className="gap-1.5 text-xs rounded-xl"
+            >
+              <Compass className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Ulangi Onboarding</span>
+            </Button>
+
+            {user ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={logout}
+                className="gap-1.5 text-xs rounded-xl"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Keluar (Logout)</span>
+              </Button>
+            ) : (
+              <Link href="/login">
+                <Button size="sm" className="gap-1.5 text-xs rounded-xl font-bold">
+                  <User className="h-3.5 w-3.5" />
+                  <span>Masuk Akun Supabase</span>
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Database Connection Status */}
       <Card className="p-5 shadow-sm">

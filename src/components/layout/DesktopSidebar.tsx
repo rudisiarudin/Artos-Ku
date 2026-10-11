@@ -16,6 +16,7 @@ import {
   Settings,
   Plus,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFinance } from '../../context/FinanceContext';
@@ -28,7 +29,7 @@ import { Card } from '../ui/card';
 
 export function DesktopSidebar() {
   const pathname = usePathname();
-  const { netWorthData, setActiveModal, reminders } = useFinance();
+  const { netWorthData, setActiveModal, reminders, user, logout } = useFinance();
 
   const activeRemindersCount = reminders.filter((r) => !r.is_completed).length;
 
@@ -125,18 +126,38 @@ export function DesktopSidebar() {
       </nav>
 
       {/* Footer Profile */}
-      <div className="shrink-0 border-t border-border/80 p-4">
-        <Link href="/auth" className="flex items-center gap-3 transition hover:opacity-85">
-          <Avatar className="h-9 w-9 border border-border">
-            <AvatarFallback className="bg-primary/15 text-primary text-xs font-extrabold">
-              BS
+      <div className="shrink-0 border-t border-border/80 p-3 flex items-center justify-between">
+        <Link href="/auth" className="flex items-center gap-2.5 transition hover:opacity-85 overflow-hidden">
+          <Avatar className="h-8 w-8 shrink-0 border border-border">
+            <AvatarFallback className="bg-primary/15 text-primary text-[11px] font-extrabold">
+              {user?.user_metadata?.full_name
+                ? user.user_metadata.full_name.substring(0, 2).toUpperCase()
+                : user?.email
+                ? user.email.substring(0, 2).toUpperCase()
+                : 'DM'}
             </AvatarFallback>
           </Avatar>
           <div className="overflow-hidden">
-            <p className="truncate text-xs font-bold text-foreground">Budi Santoso</p>
-            <p className="truncate text-[10px] text-muted-foreground">Masuk / Kelola Akun</p>
+            <p className="truncate text-xs font-bold text-foreground">
+              {user?.user_metadata?.full_name || user?.email || 'Mode Demo'}
+            </p>
+            <p className="truncate text-[10px] text-muted-foreground">
+              {user ? 'Akun Supabase Aktif' : 'Klik untuk Masuk'}
+            </p>
           </div>
         </Link>
+
+        {user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={logout}
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            title="Keluar (Logout)"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </aside>
   );

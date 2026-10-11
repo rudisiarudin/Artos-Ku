@@ -3,16 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '../context/ThemeProvider';
 import { FinanceProvider } from '../context/FinanceContext';
-import { DesktopSidebar } from '../components/layout/DesktopSidebar';
-import { AppHeader } from '../components/layout/AppHeader';
-import { BottomNav } from '../components/layout/BottomNav';
-import { TransactionFormModal } from '../components/forms/TransactionFormModal';
-import { StockTradeModal } from '../components/forms/StockTradeModal';
-import { CryptoTradeModal } from '../components/forms/CryptoTradeModal';
-import { ReceivableFormModal } from '../components/forms/ReceivableFormModal';
-import { DebtFormModal } from '../components/forms/DebtFormModal';
-import { AccountFormModal } from '../components/forms/AccountFormModal';
-import { ServiceWorkerRegister } from '../components/shared/ServiceWorkerRegister';
+import { AppShell } from '../components/layout/AppShell';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -49,28 +40,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <FinanceProvider>
-            <div className="flex min-h-screen flex-col md:flex-row">
-              {/* Desktop Navigation Sidebar */}
-              <DesktopSidebar />
-
-              {/* Main Content Area */}
-              <div className="flex flex-1 flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-6">
-                <AppHeader />
-                <main className="flex-1 px-4 py-3 sm:px-6 sm:py-6">{children}</main>
-              </div>
-
-              {/* Mobile Bottom Navigation Bar */}
-              <BottomNav />
-
-              {/* Global Financial Modals */}
-              <TransactionFormModal />
-              <StockTradeModal />
-              <CryptoTradeModal />
-              <ReceivableFormModal />
-              <DebtFormModal />
-              <AccountFormModal />
-              <ServiceWorkerRegister />
-            </div>
+            <AppShell>{children}</AppShell>
           </FinanceProvider>
         </ThemeProvider>
       </body>

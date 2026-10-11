@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Account,
   Category,
@@ -21,6 +22,7 @@ import {
   PortfolioPosition,
 } from '../lib/finance/calculations';
 import { getSyncQueue } from '../lib/db/indexeddb';
+import { supabase, isSupabaseConfigured } from '../lib/db/supabase';
 
 interface FinanceContextType {
   accounts: Account[];
@@ -46,6 +48,14 @@ interface FinanceContextType {
   setActiveModal: (modal: string | null) => void;
   isPrivacyMode: boolean;
   togglePrivacyMode: () => void;
+  // Auth & Onboarding
+  user: any | null;
+  isAuthenticated: boolean;
+  hasCompletedOnboarding: boolean;
+  logout: () => Promise<void>;
+  setDemoMode: () => void;
+  completeOnboarding: (account: Account) => Promise<void>;
+  resetOnboarding: () => void;
   // Actions
   addTransaction: (tx: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -66,6 +76,9 @@ interface FinanceContextType {
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -81,9 +94,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(false);
 
+  // Auth and Onboarding State
+  const [user, setUser] = useState<any | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(true);
+
   const togglePrivacyMode = () => setIsPrivacyMode((prev) => !prev);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setIsLoading(true);
     try {
       const [accs, cats, txs, asts, trds, recs, dbts, bdgs, rems] = await Promise.all([
@@ -113,8 +131,93 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // Auth & Onboarding Guard Logic
+  useEffect(() => {
+    let isMounted = true;
+
+    const evaluateAuth = async () => {
+      try {
+        let authUser = null;
+        if (isSupabaseConfigured() && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          authUser = session?.user || null;
+        }
+
+        const isDemo = typeof window !== 'undefined' && localStorage.getItem('artosku_demo_session') === 'true';
+        const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
+
+        if (!isMounted) return;
+
+        const authed = Boolean(authUser || isDemo);
+        setUser(authUser);
+        setIsAuthenticated(authed);
+        setHasCompletedOnboarding(onboarded);
+
+        const isAuthRoute =
+          pathname.startsWith('/login') ||
+          pathname.startsWith('/register') ||
+          pathname.startsWith('/auth');
+        const isOnboardingRoute = pathname.startsWith('/onboarding');
+
+        // 1. Not Authenticated: Force to /login if trying to access protected routes
+        if (!authed) {
+          if (!isAuthRoute) {
+            router.push('/login');
+          }
+          return;
+        }
+
+        // 2. Authenticated but haven't onboarded yet: Force to /onboarding
+        if (!onboarded) {
+          if (!isOnboardingRoute) {
+            router.push('/onboarding');
+          }
+          return;
+        }
+
+        // 3. Authenticated & Onboarded: If on /login or /onboarding, go to home
+        if (isAuthRoute || isOnboardingRoute) {
+          router.push('/');
+        }
+      } catch (err) {
+        console.warn('Error during auth check:', err);
+      }
+    };
+
+    evaluateAuth();
+
+    // Listen to Supabase Auth State changes
+    if (isSupabaseConfigured() && supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!isMounted) return;
+        const currentUsr = session?.user || null;
+        setUser(currentUsr);
+        setIsAuthenticated(Boolean(currentUsr));
+
+        if (event === 'SIGNED_OUT') {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('artosku_demo_session');
+          }
+          router.push('/login');
+        } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
+          setHasCompletedOnboarding(onboarded);
+          if (!onboarded) {
+            router.push('/onboarding');
+          }
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        subscription.unsubscribe();
+      };
+    }
+  }, [pathname, router]);
+
+  // Network & Data Load Listener
   useEffect(() => {
     loadAll();
 
@@ -133,7 +236,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         window.removeEventListener('offline', handleOffline);
       }
     };
-  }, []);
+  }, [loadAll]);
 
   // Compute Portfolio positions
   const positions = useMemo(() => {
@@ -186,6 +289,76 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       savingsRate: Number(rate.toFixed(1)),
     };
   }, [transactions]);
+
+  // Auth & Onboarding Handlers
+  const logout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('artosku_demo_session');
+    }
+    if (isSupabaseConfigured() && supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    setIsAuthenticated(false);
+    router.push('/login');
+  };
+
+  const setDemoMode = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('artosku_demo_session', 'true');
+    }
+    setIsAuthenticated(true);
+    const onboarded = typeof window !== 'undefined' && localStorage.getItem('artosku_onboarding_completed') === 'true';
+    setHasCompletedOnboarding(onboarded);
+    if (!onboarded) {
+      router.push('/onboarding');
+    } else {
+      router.push('/');
+    }
+  };
+
+  const completeOnboarding = async (initialAccount: Account) => {
+    // 1. Save Initial Account
+    await storage.saveAccount(initialAccount);
+
+    // 2. If opening balance > 0, record Initial Opening Balance Transaction
+    if (Number(initialAccount.opening_balance) > 0) {
+      const initialTx: Transaction = {
+        id: `tx_init_${Date.now()}`,
+        user_id: initialAccount.user_id,
+        date: new Date().toISOString(),
+        type: 'income',
+        amount: Number(initialAccount.opening_balance),
+        source_account_id: initialAccount.id,
+        destination_account_id: null,
+        category_id: null,
+        description: `Saldo Awal: ${initialAccount.name}`,
+        notes: 'Pencatatan saldo awal saat onboarding dompet pertama ArtosKu.',
+        payment_method: initialAccount.type,
+        tags: ['onboarding', 'saldo_awal'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await storage.addTransaction(initialTx);
+    }
+
+    // 3. Mark Onboarding as Completed
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('artosku_onboarding_completed', 'true');
+    }
+    setHasCompletedOnboarding(true);
+
+    await loadAll();
+    router.push('/');
+  };
+
+  const resetOnboarding = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('artosku_onboarding_completed');
+    }
+    setHasCompletedOnboarding(false);
+    router.push('/onboarding');
+  };
 
   // Actions
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => {
@@ -304,6 +477,15 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         setActiveModal,
         isPrivacyMode,
         togglePrivacyMode,
+        // Auth & Onboarding
+        user,
+        isAuthenticated,
+        hasCompletedOnboarding,
+        logout,
+        setDemoMode,
+        completeOnboarding,
+        resetOnboarding,
+        // Actions
         addTransaction,
         deleteTransaction,
         saveAccount,
