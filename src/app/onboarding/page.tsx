@@ -228,6 +228,15 @@ export default function OnboardingPage() {
         updated_at: new Date().toISOString(),
       };
 
+      if (typeof window !== 'undefined' && displayName.trim()) {
+        localStorage.setItem('artosku_user_name', displayName.trim());
+      }
+      if (isSupabaseConfigured() && supabase && displayName.trim()) {
+        supabase.auth.updateUser({
+          data: { full_name: displayName.trim() },
+        }).catch(() => {});
+      }
+
       await completeOnboarding(newAccount);
     } catch (err) {
       console.error('Failed to complete onboarding:', err);

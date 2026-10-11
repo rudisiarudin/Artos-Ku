@@ -33,6 +33,7 @@ import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { PhysicalWalletDeck } from '../components/cards/PhysicalWalletDeck';
 import { QuickActionBar } from '../components/shared/QuickActionBar';
+import { QuickAccessMenu } from '../components/shared/QuickAccessMenu';
 
 const CashFlowBarChart = dynamic(
   () => import('../components/charts/FinancialCharts').then((mod) => mod.CashFlowBarChart),
@@ -45,6 +46,7 @@ const CategoryPieChart = dynamic(
 
 export default function DashboardPage() {
   const {
+    user,
     netWorthData,
     accounts,
     transactions,
@@ -102,6 +104,21 @@ export default function DashboardPage() {
     if (hour < 15) return 'Selamat siang,';
     if (hour < 18) return 'Selamat sore,';
     return 'Selamat malam,';
+  };
+
+  // Dynamic user display name resolved from profile metadata or storage
+  const getUserDisplayName = () => {
+    if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
+    if (user?.user_metadata?.name) return user.user_metadata.name;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('artosku_user_name');
+      if (stored) return stored;
+    }
+    if (user?.email) {
+      const namePart = user.email.split('@')[0];
+      return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    }
+    return 'Rudi Si\'arudin';
   };
 
   // Helper to pick category icon and colors
@@ -162,40 +179,71 @@ export default function DashboardPage() {
       {/* ========================================================
           MOBILE VIEW: Exact Layout Inspired by Fintech Reference
          ======================================================== */}
-      <div className="space-y-6 sm:hidden">
-        {/* Mobile Greeting & Total Balance */}
-        <div className="space-y-3 pt-1">
+      <div className="space-y-5 sm:hidden">
+        {/* 1. Header Greeting & Profile Status */}
+        <div className="flex items-center justify-between pt-1">
           <div>
             <p className="text-xs font-medium text-muted-foreground">{getGreeting()}</p>
             <h2 className="text-xl font-extrabold tracking-tight text-foreground">
-              Siarudin 👋
+              {getUserDisplayName()} 👋
             </h2>
           </div>
+          <Badge
+            variant="outline"
+            className="gap-1.5 px-2.5 py-1 text-[11px] font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shadow-xs"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Aktif</span>
+          </Badge>
+        </div>
 
-          <div>
+        {/* 2. Total Balance & Cash Flow Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card/90 to-card/60 p-4.5 shadow-sm">
+          <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Balance
+              Total Kekayaan Bersih
             </span>
-            <div className="mt-0.5 flex items-center gap-2">
-              <span className="font-mono text-3xl font-black tracking-tight text-foreground">
-                {isPrivacyMode ? 'Rp •••••••' : formatIDR(netWorthData.netWorth)}
+            <button
+              onClick={togglePrivacyMode}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
+              aria-label={isPrivacyMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+            >
+              {isPrivacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+
+          <div className="mt-1 font-mono text-3xl font-black tracking-tight text-foreground">
+            {isPrivacyMode ? 'Rp •••••••' : formatIDR(netWorthData.netWorth)}
+          </div>
+
+          <div className="mt-3 flex items-center gap-3 border-t border-border/50 pt-2.5 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <span className="text-[10px] font-bold">▲</span>
+              <span className="text-[11px] font-bold">
+                {isPrivacyMode ? '•••' : formatIDR(monthlyIncome)}
               </span>
-              <button
-                onClick={togglePrivacyMode}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground active:scale-95"
-                aria-label={isPrivacyMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
-              >
-                {isPrivacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
             </div>
+            <span className="text-border">•</span>
+            <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+              <span className="text-[10px] font-bold">▼</span>
+              <span className="text-[11px] font-bold">
+                {isPrivacyMode ? '•••' : formatIDR(monthlyExpenses)}
+              </span>
+            </div>
+            <span className="ml-auto text-[10px] font-medium text-muted-foreground">
+              Bulan ini
+            </span>
           </div>
         </div>
 
-        {/* Circular Quick Action Bar */}
+        {/* 3. Primary Circular Quick Action Bar */}
         <QuickActionBar />
 
-        {/* Stacked Physical Card Deck (My Wallet) */}
+        {/* 4. Swipeable Virtual Cards (My Wallet) */}
         <PhysicalWalletDeck />
+
+        {/* 5. Menu Quick Access (8-Grid Shortcuts) */}
+        <QuickAccessMenu />
 
         {/* Mobile Latest Transactions */}
         <div className="space-y-3 pt-2">
@@ -317,14 +365,17 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1.5 px-2.5 py-0.5 text-xs font-medium">
+              <Badge variant="outline" className="gap-1.5 px-2.5 py-0.5 text-xs font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Status Finansial Terverifikasi</span>
+                <span>Akun Terverifikasi</span>
               </Badge>
             </div>
             <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Kekayaan & Kesehatan Finansial
+              {getGreeting()} {getUserDisplayName()} 👋
             </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Ringkasan kekayaan bersih, transaksi, dan aset finansial Anda.
+            </p>
           </div>
 
           <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
@@ -487,6 +538,9 @@ export default function DashboardPage() {
             subtitle="Sebelum dikurangi kewajiban hutang"
           />
         </div>
+
+        {/* Desktop Quick Access Menu */}
+        <QuickAccessMenu />
 
         {/* Visualizations Section */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
