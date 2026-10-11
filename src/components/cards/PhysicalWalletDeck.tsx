@@ -160,7 +160,7 @@ export function PhysicalWalletDeck() {
                   lower.includes('goto');
 
                 if (hasBrandLogo) {
-                  return <InstitutionLogo name={searchStr} className="h-6" />;
+                  return <InstitutionLogo name={searchStr} className="h-6 w-auto" variant="card" />;
                 }
 
                 return (

@@ -2,94 +2,100 @@ import React from 'react';
 
 interface LogoProps {
   className?: string;
-  variant?: 'light' | 'dark' | 'auto';
+  variant?: 'card' | 'color' | 'auto';
+  alt?: string;
 }
 
 /**
  * Official Bank Central Asia (BCA) Logo
- * Renders in a high-contrast pill container for cards & UI presets
+ * - variant 'card': seamless pure white vector logo printed directly on the card (no border, no box)
+ * - variant 'color': official blue vector logo on transparent background
  */
-export function BcaLogo({ className = 'h-5 w-auto' }: LogoProps) {
+export function BcaLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/bca-white.svg' : '/logos/bca.svg';
+
   return (
-    <div className={`inline-flex items-center justify-center rounded-md bg-white px-1.5 py-0.5 shadow-2xs ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logos/bca.svg"
-        alt="Bank Central Asia"
-        className="h-4 w-auto object-contain"
-        loading="eager"
-      />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Bank Central Asia"
+      className={`object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+    />
   );
 }
 
 /**
  * Official Bank Mandiri Logo
- * Renders in a high-contrast pill container for cards & UI presets
+ * - variant 'card': white text + golden ribbon on transparent background (no border, no box)
+ * - variant 'color': official blue text + golden ribbon on transparent background
  */
-export function MandiriLogo({ className = 'h-5 w-auto' }: LogoProps) {
+export function MandiriLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/mandiri-white.svg' : '/logos/mandiri.svg';
+
   return (
-    <div className={`inline-flex items-center justify-center rounded-md bg-white px-1.5 py-0.5 shadow-2xs ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logos/mandiri.svg"
-        alt="Bank Mandiri"
-        className="h-4 w-auto object-contain"
-        loading="eager"
-        onError={(e) => {
-          // Fallback to high-res PNG if SVG has render quirk
-          (e.currentTarget as HTMLImageElement).src = '/logos/mandiri.png';
-        }}
-      />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Bank Mandiri"
+      className={`object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).src = '/logos/mandiri.png';
+      }}
+    />
   );
 }
 
 /**
  * Official GoPay Logo
- * Renders in a high-contrast pill container for cards & UI presets
+ * - variant 'card': cyan circle + white text on transparent background (no border, no box)
+ * - variant 'color': cyan circle + black text on transparent background
  */
-export function GopayLogo({ className = 'h-5 w-auto' }: LogoProps) {
+export function GopayLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  const src = isCard ? '/logos/gopay-white.svg' : '/logos/gopay.svg';
+
   return (
-    <div className={`inline-flex items-center justify-center rounded-md bg-white px-2 py-0.5 shadow-2xs ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logos/gopay.svg"
-        alt="GoPay"
-        className="h-3.5 w-auto object-contain"
-        loading="eager"
-        onError={(e) => {
-          // Fallback to high-res PNG
-          (e.currentTarget as HTMLImageElement).src = '/logos/gopay.png';
-        }}
-      />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="GoPay"
+      className={`object-contain transition-transform duration-200 ${className}`}
+      loading="eager"
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).src = '/logos/gopay.png';
+      }}
+    />
   );
 }
 
 /**
  * Smart Institution Logo Resolver
- * Automatically selects the official vector logo for recognized institutions/wallets
  */
 export function InstitutionLogo({
   name,
   className = 'h-5 w-auto',
+  variant = 'card',
 }: {
   name: string;
   className?: string;
+  variant?: 'card' | 'color' | 'auto';
 }) {
   const lower = (name || '').toLowerCase();
 
   if (lower.includes('bca') || lower.includes('central asia')) {
-    return <BcaLogo className={className} />;
+    return <BcaLogo className={className} variant={variant} />;
   }
 
   if (lower.includes('mandiri')) {
-    return <MandiriLogo className={className} />;
+    return <MandiriLogo className={className} variant={variant} />;
   }
 
   if (lower.includes('gopay') || lower.includes('go-pay') || lower.includes('goto')) {
-    return <GopayLogo className={className} />;
+    return <GopayLogo className={className} variant={variant} />;
   }
 
   return null;

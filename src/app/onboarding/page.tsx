@@ -234,20 +234,22 @@ export default function OnboardingPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {selectedPreset.id === 'bca' ? (
-              <BcaLogo className="h-6" />
+              <BcaLogo className="h-6 w-auto" variant="card" />
             ) : selectedPreset.id === 'mandiri' ? (
-              <MandiriLogo className="h-6" />
+              <MandiriLogo className="h-5 w-auto" variant="card" />
             ) : selectedPreset.id === 'gopay' ? (
-              <GopayLogo className="h-6" />
+              <GopayLogo className="h-5 w-auto" variant="card" />
             ) : (
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
                 <Wallet className="h-4 w-4 text-white" />
               </div>
             )}
             <div>
-              <span className="text-xs font-black tracking-wider uppercase text-white/95 drop-shadow-xs">
-                {selectedPreset.badge}
-              </span>
+              {!['bca', 'mandiri', 'gopay'].includes(selectedPreset.id) && (
+                <span className="text-xs font-black tracking-wider uppercase text-white/95 drop-shadow-xs">
+                  {selectedPreset.badge}
+                </span>
+              )}
               <span className="block text-[9px] font-medium tracking-wide text-white/70 truncate max-w-[170px]">
                 {institutionName || 'ArtosKu Digital'}
               </span>
@@ -484,11 +486,11 @@ export default function OnboardingPage() {
                       )}
                     >
                       {preset.id === 'bca' ? (
-                        <BcaLogo className="h-4 my-0.5" />
+                        <BcaLogo className="h-4.5 w-auto my-0.5" variant="color" />
                       ) : preset.id === 'mandiri' ? (
-                        <MandiriLogo className="h-4 my-0.5" />
+                        <MandiriLogo className="h-4 w-auto my-0.5" variant="color" />
                       ) : preset.id === 'gopay' ? (
-                        <GopayLogo className="h-4 my-0.5" />
+                        <GopayLogo className="h-3.5 w-auto my-0.5" variant="color" />
                       ) : (
                         <span className="text-xs font-bold leading-tight">{preset.shortName}</span>
                       )}
