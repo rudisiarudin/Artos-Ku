@@ -14,9 +14,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     currency TEXT DEFAULT 'IDR' NOT NULL,
     locale TEXT DEFAULT 'id-ID' NOT NULL,
     timezone TEXT DEFAULT 'Asia/Jakarta' NOT NULL,
+    telegram_chat_id TEXT,
+    telegram_bot_token TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telegram_bot_token TEXT;
+
 
 -- 2. ACCOUNTS & WALLETS
 CREATE TABLE IF NOT EXISTS public.accounts (

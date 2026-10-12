@@ -26,10 +26,10 @@ import {
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useFinance } from '../../context/FinanceContext';
-import { isSupabaseConfigured } from '../../lib/db/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/db/supabase';
 import { storage } from '../../lib/db/storage';
 import { CategoryType } from '../../lib/db/types';
-import { generateUUID } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -62,6 +62,11 @@ export default function SettingsPage() {
   });
   const [showTelegramToken, setShowTelegramToken] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [isActivatingWebhook, setIsActivatingWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [telegramTestResult, setTelegramTestResult] = useState<{
     success: boolean;
     message: string;
@@ -154,8 +159,59 @@ export default function SettingsPage() {
     };
     setTelegramConfig(updated);
     saveTelegramConfig(updated);
+
+    // Sync telegram_chat_id to Supabase profile
+    if (supabase && user?.id) {
+      supabase
+        .from('profiles')
+        .update({
+          telegram_chat_id: telegramConfig.chatId.trim(),
+          telegram_bot_token: telegramConfig.botToken.trim(),
+        })
+        .eq('id', user.id)
+        .then(() => {});
+    }
+
     setStatusMessage('Konfigurasi Telegram Bot berhasil disimpan!');
     setTimeout(() => setStatusMessage(''), 3000);
+  };
+
+  // Handle Activate Webhook (so bot responds to chats)
+  const handleActivateWebhook = async () => {
+    if (!telegramConfig.botToken.trim()) {
+      setWebhookResult({
+        success: false,
+        message: 'Mohon isi Bot Token terlebih dahulu sebelum mengaktifkan webhook.',
+      });
+      return;
+    }
+
+    setIsActivatingWebhook(true);
+    setWebhookResult(null);
+
+    try {
+      const res = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_webhook',
+          botToken: telegramConfig.botToken.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      setWebhookResult({
+        success: Boolean(data.success),
+        message: data.message || (data.success ? 'Webhook berhasil diaktifkan!' : 'Gagal mengaktifkan webhook'),
+      });
+    } catch (err: any) {
+      setWebhookResult({
+        success: false,
+        message: err?.message || 'Gagal menghubungi server.',
+      });
+    } finally {
+      setIsActivatingWebhook(false);
+    }
   };
 
   // Handle Test Telegram
@@ -434,6 +490,19 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Webhook Result Message */}
+          {webhookResult && (
+            <div
+              className={`rounded-xl p-3.5 text-xs font-medium ${
+                webhookResult.success
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+              }`}
+            >
+              {webhookResult.message}
+            </div>
+          )}
+
           {/* Test Feedback Message */}
           {telegramTestResult && (
             <div
@@ -448,10 +517,22 @@ export default function SettingsPage() {
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             <Button type="submit" className="gap-2 font-bold shadow-sm">
               <CheckCircle2 className="h-4 w-4" />
               <span>Simpan Konfigurasi Bot</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleActivateWebhook}
+              disabled={isActivatingWebhook}
+              className="gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+              title="Aktifkan agar bot bisa merespons /saldo dan /catat transaksi langsung dari chat"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isActivatingWebhook && 'animate-spin')} />
+              <span>{isActivatingWebhook ? 'Mengaktifkan...' : 'Aktifkan Webhook Bot (Respon Chat)'}</span>
             </Button>
 
             <Button
@@ -466,7 +547,7 @@ export default function SettingsPage() {
               ) : (
                 <Send className="h-3.5 w-3.5 text-sky-500" />
               )}
-              <span>{isTestingTelegram ? 'Menguji Koneksi...' : 'Kirim Pesan Uji Coba (Test)'}</span>
+              <span>{isTestingTelegram ? 'Menguji...' : 'Kirim Pesan Uji Coba'}</span>
             </Button>
 
             <button
@@ -477,6 +558,47 @@ export default function SettingsPage() {
               <HelpCircle className="h-3.5 w-3.5" />
               <span>{showTelegramGuide ? 'Tutup Panduan' : 'Panduan Membuat Bot (1 Menit)'}</span>
             </button>
+          </div>
+
+          {/* Interactive Chat Commands Cheatsheet */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground">
+                💬 Perintah Interaktif yang Bisa Diketik ke Bot Telegram Anda:
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 text-xs text-muted-foreground font-mono">
+              <div className="rounded-lg border border-border/80 bg-background p-2.5 space-y-1">
+                <span className="font-bold text-foreground block">💳 Cek Saldo & Dompet</span>
+                <p><code>/saldo</code> atau <code>/wallet</code></p>
+                <span className="text-[10px] text-muted-foreground block font-sans">
+                  Menampilkan saldo semua rekening (BCA, GoPay, Tunai) & total kas.
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-border/80 bg-background p-2.5 space-y-1">
+                <span className="font-bold text-foreground block">💸 Catat Pengeluaran</span>
+                <p><code>/catat makan siang 35000</code></p>
+                <p><code>/catat bensin 50k bca</code></p>
+                <span className="text-[10px] text-muted-foreground block font-sans">
+                  Otomatis memotong saldo rekening & tercatat di ArtosKu.
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-border/80 bg-background p-2.5 space-y-1">
+                <span className="font-bold text-foreground block">💰 Catat Pemasukan</span>
+                <p><code>/masuk gaji 10000000</code></p>
+                <span className="text-[10px] text-muted-foreground block font-sans">
+                  Menambah saldo rekening penerima secara instan.
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-border/80 bg-background p-2.5 space-y-1">
+                <span className="font-bold text-foreground block">🤝 Cek Piutang & Riwayat</span>
+                <p><code>/piutang</code> (Cek uang yang dipinjam)</p>
+                <p><code>/riwayat</code> (5 transaksi terakhir)</p>
+              </div>
+            </div>
           </div>
         </form>
 
