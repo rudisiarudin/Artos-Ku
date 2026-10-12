@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <DesktopSidebar />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-6">
+      <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-6">
         <AppHeader />
         <main className="flex-1 px-4 py-3 sm:px-6 sm:py-6">{children}</main>
       </div>

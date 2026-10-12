@@ -38,9 +38,15 @@ export function BottomNav() {
     { label: 'Akun / Masuk', href: '/auth', icon: Landmark },
   ];
 
+  const navItems = [
+    { id: 'home', label: 'Home', href: '/', icon: Home },
+    { id: 'reports', label: 'Laporan', href: '/reports', icon: BarChart3 },
+    { id: 'menu', label: 'Menu', href: '#menu', icon: MoreHorizontal, isAction: true },
+  ];
+
   return (
     <>
-      {/* "More" Sheet Drawer (Native Mobile Slide-Up) */}
+      {/* "More" Sheet Drawer */}
       {showMoreMenu && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
@@ -88,7 +94,7 @@ export function BottomNav() {
         </div>
       )}
 
-      {/* FAB Quick Action Bottom Sheet (Native Mobile Slide-Up) */}
+      {/* FAB Quick Action Bottom Sheet */}
       {showFabMenu && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
@@ -190,69 +196,84 @@ export function BottomNav() {
         </div>
       )}
 
-      {/* Docked Mobile Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border/80 bg-background/95 px-3 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden">
-        {/* Item 1: Home */}
-        <Link
-          href="/"
-          className={cn(
-            'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[11px] font-medium transition',
-            pathname === '/' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <Home className="h-5 w-5" />
-          <span>Home</span>
-        </Link>
+      {/* Floating Pill Dock Navigation (Exact Design 01) */}
+      <div className="fixed bottom-5 left-0 right-0 z-40 flex items-center justify-center px-4 pointer-events-none md:hidden">
+        <div className="flex items-center gap-2.5 pointer-events-auto max-w-[390px] w-full">
+          
+          {/* Main Capsule Dock: Deep Navy rounded-full pill */}
+          <nav className="flex-1 bg-[#14202e] dark:bg-[#0f1724] border border-white/10 rounded-full p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.45)] flex items-center justify-between">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.isAction 
+                ? showMoreMenu || (pathname !== '/' && pathname !== '/reports')
+                : pathname === item.href && !showMoreMenu;
 
-        {/* Item 2: Analytics / Reports */}
-        <Link
-          href="/reports"
-          className={cn(
-            'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[11px] font-medium transition',
-            pathname === '/reports' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <BarChart3 className="h-5 w-5" />
-          <span>Analytics</span>
-        </Link>
+              const content = (
+                <div
+                  className={cn(
+                    'flex items-center justify-center transition-all duration-300 rounded-full select-none cursor-pointer',
+                    isActive
+                      ? 'bg-white px-4 py-2 gap-2 shadow-sm font-extrabold'
+                      : 'text-white/65 hover:text-white px-3.5 py-2'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-5 w-5 transition-transform duration-200',
+                      isActive ? 'text-[#F05A28] stroke-[2.4] fill-[#F05A28]/25 scale-105' : 'stroke-[2]'
+                    )}
+                  />
+                  {isActive && (
+                    <span className="text-xs font-black tracking-tight text-zinc-900 whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
+                      {item.label}
+                    </span>
+                  )}
+                </div>
+              );
 
-        {/* CENTER PROMINENT FLOATING ACTION BUTTON */}
-        <div className="relative -top-4 flex items-center justify-center">
+              if (item.isAction) {
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className="focus:outline-none"
+                    aria-label={item.label}
+                  >
+                    {content}
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={() => setShowMoreMenu(false)}
+                  className="focus:outline-none"
+                  aria-label={item.label}
+                >
+                  {content}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Action Button: Detached Floating Circle (Row 4 in Design 01) */}
           <button
-            onClick={() => setShowFabMenu(true)}
-            aria-label="Tambah Transaksi Finansial"
-            className="flex h-13 w-13 items-center justify-center rounded-full bg-zinc-950 text-white dark:bg-[#4ade80] dark:text-zinc-950 shadow-lg shadow-black/10 dark:shadow-[#4ade80]/20 transition-transform hover:scale-105 active:scale-95"
+            onClick={() => setShowFabMenu(!showFabMenu)}
+            aria-label="Tambah Transaksi Cepat"
+            className={cn(
+              'h-14 w-14 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 shadow-[0_16px_36px_rgba(0,0,0,0.45)] active:scale-90 cursor-pointer select-none',
+              showFabMenu
+                ? 'bg-[#F05A28] text-white shadow-[#F05A28]/45 border-0'
+                : 'bg-[#14202e] dark:bg-[#0f1724] border border-white/10 text-white hover:border-[#F05A28]/50'
+            )}
           >
-            <Plus className="h-6 w-6 stroke-[2.6]" />
+            <Plus className={cn('h-6 w-6 stroke-[2.8] transition-transform duration-200', showFabMenu ? 'rotate-45' : '')} />
           </button>
+
         </div>
-
-        {/* Item 3: Budgets */}
-        <Link
-          href="/budgets"
-          className={cn(
-            'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[11px] font-medium transition',
-            pathname === '/budgets' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <PiggyBank className="h-5 w-5" />
-          <span>Budgets</span>
-        </Link>
-
-        {/* Item 4: More / Lainnya */}
-        <button
-          onClick={() => setShowMoreMenu(true)}
-          className={cn(
-            'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[11px] font-medium transition',
-            showMoreMenu || (pathname !== '/' && pathname !== '/reports' && pathname !== '/budgets')
-              ? 'text-primary font-bold'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          <span>Menu</span>
-        </button>
-      </nav>
+      </div>
     </>
   );
 }
