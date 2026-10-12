@@ -29,6 +29,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { isSupabaseConfigured } from '../../lib/db/supabase';
 import { storage } from '../../lib/db/storage';
 import { CategoryType } from '../../lib/db/types';
+import { generateUUID } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -126,9 +127,10 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!newCatName.trim()) return;
 
+    const activeUid = user?.id || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) || 'local_user';
     await saveCategory({
-      id: `cat_${Date.now()}`,
-      user_id: 'default-user',
+      id: generateUUID(),
+      user_id: activeUid,
       name: newCatName.trim(),
       type: newCatType,
       icon: 'Tag',

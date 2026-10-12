@@ -5,10 +5,10 @@ import { X, TrendingUp, DollarSign } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR, formatStockQuantity } from '../../lib/finance/formatters';
 import { lotsToShares } from '../../lib/finance/calculations';
-import { cn } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 
 export function StockTradeModal() {
-  const { activeModal, setActiveModal, assets, accounts, addTrade, saveAsset } = useFinance();
+  const { activeModal, setActiveModal, assets, accounts, addTrade, saveAsset, user } = useFinance();
 
   const stockAssets = assets.filter((a) => a.asset_type === 'stock');
 
@@ -54,10 +54,11 @@ export function StockTradeModal() {
           return;
         }
 
-        finalAssetId = `asset_stock_${newTicker.toUpperCase().trim()}`;
+        const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+        finalAssetId = generateUUID();
         await saveAsset({
           id: finalAssetId,
-          user_id: 'default-user',
+          user_id: activeUid,
           asset_type: 'stock',
           ticker: newTicker.toUpperCase().trim(),
           name: newName.trim(),
@@ -69,8 +70,9 @@ export function StockTradeModal() {
         });
       }
 
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
       await addTrade({
-        user_id: 'default-user',
+        user_id: activeUid,
         asset_id: finalAssetId,
         trade_type: tradeType,
         trade_date: new Date(tradeDate).toISOString(),

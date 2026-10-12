@@ -6,10 +6,10 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { calculateInstallment } from '../../lib/finance/calculations';
 import { DebtInterestType, DebtType } from '../../lib/db/types';
-import { cn } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 
 export function DebtFormModal() {
-  const { activeModal, setActiveModal, debts, accounts, saveDebt, recordDebtPayment } = useFinance();
+  const { activeModal, setActiveModal, debts, accounts, saveDebt, recordDebtPayment, user } = useFinance();
 
   const activeDebts = debts.filter((d) => d.status !== 'paid_off');
 
@@ -62,10 +62,11 @@ export function DebtFormModal() {
     setError('');
 
     try {
-      const debtId = `debt_${Date.now()}`;
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+      const debtId = generateUUID();
       await saveDebt({
         id: debtId,
-        user_id: 'default-user',
+        user_id: activeUid,
         creditor_name: creditorName.trim(),
         debt_name: debtName.trim(),
         type: debtType,
@@ -112,9 +113,10 @@ export function DebtFormModal() {
     setError('');
 
     try {
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
       const nextInstNum = (selectedDebt.tenor_months - selectedDebt.remaining_installments) + 1;
       await recordDebtPayment({
-        user_id: 'default-user',
+        user_id: activeUid,
         debt_id: selectedDebt.id,
         account_id: payingAccountId,
         payment_date: new Date(paymentDate).toISOString(),

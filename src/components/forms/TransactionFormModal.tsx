@@ -8,7 +8,7 @@ import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';
 
 export function TransactionFormModal() {
-  const { activeModal, setActiveModal, accounts, categories, addTransaction } = useFinance();
+  const { activeModal, setActiveModal, accounts, categories, addTransaction, user } = useFinance();
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amountStr, setAmountStr] = useState('');
@@ -21,6 +21,12 @@ export function TransactionFormModal() {
   const [paymentMethod, setPaymentMethod] = useState('qris');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (!sourceAccountId && accounts.length > 0) {
+      setSourceAccountId(accounts[0].id);
+    }
+  }, [accounts, sourceAccountId]);
 
   if (activeModal !== 'transaction') return null;
 
@@ -51,12 +57,13 @@ export function TransactionFormModal() {
     setError('');
 
     try {
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
       await addTransaction({
-        user_id: 'default-user',
+        user_id: activeUid,
         date: new Date(date).toISOString(),
         type,
         amount: rawAmount,
-        source_account_id: sourceAccountId || null,
+        source_account_id: sourceAccountId || accounts[0]?.id || null,
         destination_account_id: type === 'transfer' ? destinationAccountId || null : null,
         category_id: type === 'transfer' ? null : categoryId || null,
         description: description.trim(),

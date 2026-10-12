@@ -10,9 +10,10 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
+import { generateUUID } from '../../lib/utils';
 
 export default function BudgetsPage() {
-  const { categories, transactions, budgets, saveBudget } = useFinance();
+  const { categories, transactions, budgets, saveBudget, user, accounts } = useFinance();
 
   const [selectedCatId, setSelectedCatId] = useState('');
   const [limitStr, setLimitStr] = useState('');
@@ -58,9 +59,10 @@ export default function BudgetsPage() {
     const rawLimit = parseFloat(limitStr.replace(/[^0-9]/g, '')) || 0;
     if (!selectedCatId || rawLimit <= 0) return;
 
+    const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
     await saveBudget({
-      id: `b_${selectedCatId}_${currentMonthYear}`,
-      user_id: 'default-user',
+      id: generateUUID(),
+      user_id: activeUid,
       category_id: selectedCatId,
       month_year: currentMonthYear,
       monthly_limit: rawLimit,

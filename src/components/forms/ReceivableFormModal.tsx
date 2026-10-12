@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { X, HandCoins, CheckCircle2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
-import { cn } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 
 export function ReceivableFormModal() {
   const {
@@ -15,6 +15,7 @@ export function ReceivableFormModal() {
     saveReceivable,
     recordReceivablePayment,
     addTransaction,
+    user,
   } = useFinance();
 
   const activeReceivables = receivables.filter((r) => r.status !== 'paid');
@@ -60,10 +61,11 @@ export function ReceivableFormModal() {
     setError('');
 
     try {
-      const recId = `rec_${Date.now()}`;
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+      const recId = generateUUID();
       await saveReceivable({
         id: recId,
-        user_id: 'default-user',
+        user_id: activeUid,
         borrower_name: borrowerName.trim(),
         borrower_phone: borrowerPhone.trim() || null,
         principal_amount: rawPrincipal,
@@ -80,7 +82,7 @@ export function ReceivableFormModal() {
 
       // Deduct disbursement account
       await addTransaction({
-        user_id: 'default-user',
+        user_id: activeUid,
         date: new Date(loanDate).toISOString(),
         type: 'receivable_disbursement',
         amount: rawPrincipal,
@@ -116,8 +118,9 @@ export function ReceivableFormModal() {
     setError('');
 
     try {
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
       await recordReceivablePayment({
-        user_id: 'default-user',
+        user_id: activeUid,
         receivable_id: selectedRecId,
         account_id: receivingAccountId,
         payment_date: new Date(paymentDate).toISOString(),

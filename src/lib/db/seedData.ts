@@ -93,10 +93,21 @@ export const DEFAULT_ACCOUNTS: Account[] = [
   },
 ];
 
+export const DEFAULT_CATEGORY_UUID_MAP: Record<string, string> = {
+  'cat-salary': 'c0000000-0000-4000-8000-000000000001',
+  'cat-business': 'c0000000-0000-4000-8000-000000000002',
+  'cat-food': 'c0000000-0000-4000-8000-000000000003',
+  'cat-transport': 'c0000000-0000-4000-8000-000000000004',
+  'cat-bills': 'c0000000-0000-4000-8000-000000000005',
+  'cat-shopping': 'c0000000-0000-4000-8000-000000000006',
+  'cat-entertainment': 'c0000000-0000-4000-8000-000000000007',
+  'cat-debt': 'c0000000-0000-4000-8000-000000000008',
+};
+
 export const DEFAULT_CATEGORIES: Category[] = [
   {
-    id: 'cat-salary',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000001',
+    user_id: 'system',
     name: 'Gaji & Bonus',
     type: 'income',
     icon: 'Wallet',
@@ -105,8 +116,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-business',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000002',
+    user_id: 'system',
     name: 'Bisnis & Freelance',
     type: 'income',
     icon: 'Briefcase',
@@ -115,8 +126,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-food',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000003',
+    user_id: 'system',
     name: 'Makanan & Minuman',
     type: 'expense',
     icon: 'Utensils',
@@ -125,8 +136,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-transport',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000004',
+    user_id: 'system',
     name: 'Transport & Bensin',
     type: 'expense',
     icon: 'Car',
@@ -135,8 +146,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-bills',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000005',
+    user_id: 'system',
     name: 'Tagihan & Utilitas',
     type: 'expense',
     icon: 'Zap',
@@ -145,8 +156,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-shopping',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000006',
+    user_id: 'system',
     name: 'Belanja & Belanjaan',
     type: 'expense',
     icon: 'ShoppingBag',
@@ -155,8 +166,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-entertainment',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000007',
+    user_id: 'system',
     name: 'Hiburan & Liburan',
     type: 'expense',
     icon: 'Film',
@@ -165,8 +176,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'cat-debt',
-    user_id: 'default-user',
+    id: 'c0000000-0000-4000-8000-000000000008',
+    user_id: 'system',
     name: 'Cicilan & Hutang',
     type: 'expense',
     icon: 'CreditCard',

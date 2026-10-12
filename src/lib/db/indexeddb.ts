@@ -94,3 +94,12 @@ export async function removeSyncQueueItem(id: string): Promise<void> {
     console.warn('removeSyncQueueItem failed', err);
   }
 }
+
+export async function clearSyncQueue(): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.clear('sync_queue');
+  } catch (err) {
+    console.warn('clearSyncQueue failed', err);
+  }
+}

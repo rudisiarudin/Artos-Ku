@@ -23,6 +23,8 @@ import {
 } from '../lib/finance/calculations';
 import { getSyncQueue } from '../lib/db/indexeddb';
 import { supabase, isSupabaseConfigured } from '../lib/db/supabase';
+import { generateUUID, isValidUUID } from '../lib/utils';
+import { processSyncQueue } from '../lib/db/sync';
 
 interface FinanceContextType {
   accounts: Account[];
@@ -117,15 +119,84 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         storage.getReminders(),
       ]);
 
-      // Filter out any default-user legacy data
-      const cleanAccs = accs.filter((a) => a.user_id !== 'default-user');
-      const cleanTxs = txs.filter((t) => t.user_id !== 'default-user');
-      const cleanAssets = asts.filter((a) => a.user_id !== 'default-user');
-      const cleanTrades = trds.filter((t) => t.user_id !== 'default-user');
-      const cleanRecs = recs.filter((r) => r.user_id !== 'default-user');
-      const cleanDebts = dbts.filter((d) => d.user_id !== 'default-user');
-      const cleanBudgets = bdgs.filter((b) => b.user_id !== 'default-user');
-      const cleanReminders = rems.filter((r) => r.user_id !== 'default-user');
+      // Auto-heal / migrate any user-created items that were saved with legacy 'default-user'
+      let activeAuthId: string | null = null;
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          activeAuthId = session?.user?.id || null;
+        } catch {}
+      }
+      const targetUserId = activeAuthId || user?.id || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null);
+
+      if (targetUserId) {
+        const isSeedId = (id: string) =>
+          ['acc-bca', 'acc-mandiri', 'acc-gopay', 'acc-cash', 'acc-rdi'].includes(id) ||
+          id.startsWith('tx-demo') ||
+          id.startsWith('trade-') ||
+          id.startsWith('rec-') ||
+          id.startsWith('debt-');
+
+        let modified = false;
+        accs.forEach((a) => {
+          if (a.user_id === 'default-user' && !isSeedId(a.id)) {
+            a.user_id = targetUserId;
+            modified = true;
+          }
+        });
+        txs.forEach((t) => {
+          if (t.user_id === 'default-user' && !isSeedId(t.id)) {
+            t.user_id = targetUserId;
+            modified = true;
+          }
+        });
+        recs.forEach((r) => {
+          if (r.user_id === 'default-user' && !isSeedId(r.id)) {
+            r.user_id = targetUserId;
+            modified = true;
+          }
+        });
+        dbts.forEach((d) => {
+          if (d.user_id === 'default-user' && !isSeedId(d.id)) {
+            d.user_id = targetUserId;
+            modified = true;
+          }
+        });
+        bdgs.forEach((b) => {
+          if (b.user_id === 'default-user') {
+            b.user_id = targetUserId;
+            modified = true;
+          }
+        });
+
+        if (modified) {
+          await Promise.all([
+            storage.setCollection('artosku_accounts', accs),
+            storage.setCollection('artosku_transactions', txs),
+            storage.setCollection('artosku_receivables', recs),
+            storage.setCollection('artosku_debts', dbts),
+            storage.setCollection('artosku_budgets', bdgs),
+          ]);
+        }
+      }
+
+      // Filter out only true demo fixtures
+      const isSeedFixture = (id: string) =>
+        ['acc-bca', 'acc-mandiri', 'acc-gopay', 'acc-cash', 'acc-rdi'].includes(id) ||
+        (typeof id === 'string' &&
+          (id.startsWith('tx-demo') ||
+            id.startsWith('trade-') ||
+            id.startsWith('rec-') ||
+            id.startsWith('debt-')));
+
+      let cleanAccs = targetUserId ? accs.filter((a) => !isSeedFixture(a.id) && a.user_id === targetUserId) : accs.filter((a) => !isSeedFixture(a.id));
+      let cleanTxs = targetUserId ? txs.filter((t) => !isSeedFixture(t.id) && t.user_id === targetUserId) : txs.filter((t) => !isSeedFixture(t.id));
+      let cleanAssets = targetUserId ? asts.filter((a) => !isSeedFixture(a.id) && a.user_id === targetUserId) : asts.filter((a) => !isSeedFixture(a.id));
+      let cleanTrades = targetUserId ? trds.filter((t) => !isSeedFixture(t.id) && t.user_id === targetUserId) : trds.filter((t) => !isSeedFixture(t.id));
+      let cleanRecs = targetUserId ? recs.filter((r) => !isSeedFixture(r.id) && r.user_id === targetUserId) : recs.filter((r) => !isSeedFixture(r.id));
+      let cleanDebts = targetUserId ? dbts.filter((d) => !isSeedFixture(d.id) && d.user_id === targetUserId) : dbts.filter((d) => !isSeedFixture(d.id));
+      let cleanBudgets = targetUserId ? bdgs.filter((b) => b.user_id === targetUserId) : bdgs;
+      let cleanReminders = targetUserId ? rems.filter((r) => r.user_id === targetUserId) : rems;
 
       let resolvedAccs = cleanAccs;
       let resolvedTxs = cleanTxs;
@@ -135,22 +206,49 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user?.id) {
-            const { data: dbAccs } = await supabase
-              .from('accounts')
-              .select('*')
-              .eq('user_id', session.user.id);
-            if (dbAccs && dbAccs.length > 0) {
-              resolvedAccs = dbAccs;
-              await storage.setCollection('artosku_accounts', dbAccs);
-            }
+            const uid = session.user.id;
+            const [dbAccs, dbTxs, dbAssets, dbTrades, dbRecs, dbDebts, dbBudgets, dbReminders] = await Promise.all([
+              supabase.from('accounts').select('*').eq('user_id', uid),
+              supabase.from('transactions').select('*').eq('user_id', uid),
+              supabase.from('assets').select('*').eq('user_id', uid),
+              supabase.from('trades').select('*').eq('user_id', uid),
+              supabase.from('receivables').select('*').eq('user_id', uid),
+              supabase.from('debts').select('*').eq('user_id', uid),
+              supabase.from('budgets').select('*').eq('user_id', uid),
+              supabase.from('reminders').select('*').eq('user_id', uid),
+            ]);
 
-            const { data: dbTxs } = await supabase
-              .from('transactions')
-              .select('*')
-              .eq('user_id', session.user.id);
-            if (dbTxs && dbTxs.length > 0) {
-              resolvedTxs = dbTxs;
-              await storage.setCollection('artosku_transactions', dbTxs);
+            if (dbAccs.data && dbAccs.data.length > 0) {
+              resolvedAccs = dbAccs.data;
+              await storage.setCollection('artosku_accounts', dbAccs.data);
+            }
+            if (dbTxs.data && dbTxs.data.length > 0) {
+              resolvedTxs = dbTxs.data;
+              await storage.setCollection('artosku_transactions', dbTxs.data);
+            }
+            if (dbAssets.data && dbAssets.data.length > 0) {
+              cleanAssets = dbAssets.data;
+              await storage.setCollection('artosku_assets', dbAssets.data);
+            }
+            if (dbTrades.data && dbTrades.data.length > 0) {
+              cleanTrades = dbTrades.data;
+              await storage.setCollection('artosku_trades', dbTrades.data);
+            }
+            if (dbRecs.data && dbRecs.data.length > 0) {
+              cleanRecs = dbRecs.data;
+              await storage.setCollection('artosku_receivables', dbRecs.data);
+            }
+            if (dbDebts.data && dbDebts.data.length > 0) {
+              cleanDebts = dbDebts.data;
+              await storage.setCollection('artosku_debts', dbDebts.data);
+            }
+            if (dbBudgets.data && dbBudgets.data.length > 0) {
+              cleanBudgets = dbBudgets.data;
+              await storage.setCollection('artosku_budgets', dbBudgets.data);
+            }
+            if (dbReminders.data && dbReminders.data.length > 0) {
+              cleanReminders = dbReminders.data;
+              await storage.setCollection('artosku_reminders', dbReminders.data);
             }
           }
         } catch (fetchErr) {
@@ -184,12 +282,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       setBudgets(cleanBudgets);
       setReminders(cleanReminders);
 
-      const queue = await getSyncQueue();
-      setPendingSyncCount(queue.length);
+      // Process pending sync queue against Supabase
+      const remainingPending = await processSyncQueue(targetUserId || undefined);
+      setPendingSyncCount(remainingPending);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // Auth & Onboarding Guard Logic
   useEffect(() => {
@@ -391,8 +490,23 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured() && supabase) {
       await supabase.auth.signOut();
     }
+    await storage.clearAllUserData();
+    await storage.clearSyncQueue();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('artosku_user_id');
+      localStorage.removeItem('artosku_onboarding_completed');
+      localStorage.removeItem('artosku_demo_session');
+    }
     setUser(null);
     setIsAuthenticated(false);
+    setAccounts([]);
+    setTransactions([]);
+    setAssets([]);
+    setTrades([]);
+    setReceivables([]);
+    setDebts([]);
+    setBudgets([]);
+    setReminders([]);
     router.push('/login');
   };
 
@@ -514,10 +628,16 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Actions
+  const getActiveUserId = () => {
+    return user?.id || (accounts[0]?.user_id && accounts[0].user_id !== 'default-user' ? accounts[0].user_id : null) || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) || 'local_user';
+  };
+
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => {
+    const activeUid = getActiveUserId();
     const newTx: Transaction = {
       ...txData,
-      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
+      user_id: txData.user_id && txData.user_id !== 'default-user' ? txData.user_id : activeUid,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -531,24 +651,44 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveAccount = async (account: Account) => {
-    await storage.saveAccount(account);
+    const activeUid = getActiveUserId();
+    const sanitized: Account = {
+      ...account,
+      id: isValidUUID(account.id) ? account.id : generateUUID(),
+      user_id: account.user_id && account.user_id !== 'default-user' ? account.user_id : activeUid,
+    };
+    await storage.saveAccount(sanitized);
     await loadAll();
   };
 
   const saveCategory = async (category: Category) => {
-    await storage.saveCategory(category);
+    const activeUid = getActiveUserId();
+    const sanitized: Category = {
+      ...category,
+      id: isValidUUID(category.id) ? category.id : generateUUID(),
+      user_id: category.user_id && category.user_id !== 'default-user' ? category.user_id : activeUid,
+    };
+    await storage.saveCategory(sanitized);
     await loadAll();
   };
 
   const saveAsset = async (asset: InvestmentAsset) => {
-    await storage.saveAsset(asset);
+    const activeUid = getActiveUserId();
+    const sanitized: InvestmentAsset = {
+      ...asset,
+      id: isValidUUID(asset.id) ? asset.id : generateUUID(),
+      user_id: asset.user_id && asset.user_id !== 'default-user' ? asset.user_id : activeUid,
+    };
+    await storage.saveAsset(sanitized);
     await loadAll();
   };
 
   const addTrade = async (tradeData: Omit<InvestmentTrade, 'id' | 'created_at'>) => {
+    const activeUid = getActiveUserId();
     const newTrade: InvestmentTrade = {
       ...tradeData,
-      id: `trade_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
+      user_id: tradeData.user_id && tradeData.user_id !== 'default-user' ? tradeData.user_id : activeUid,
       created_at: new Date().toISOString(),
     };
     await storage.addTrade(newTrade);
@@ -556,16 +696,24 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveReceivable = async (receivable: Receivable) => {
-    await storage.saveReceivable(receivable);
+    const activeUid = getActiveUserId();
+    const sanitized: Receivable = {
+      ...receivable,
+      id: isValidUUID(receivable.id) ? receivable.id : generateUUID(),
+      user_id: receivable.user_id && receivable.user_id !== 'default-user' ? receivable.user_id : activeUid,
+    };
+    await storage.saveReceivable(sanitized);
     await loadAll();
   };
 
   const recordReceivablePayment = async (
     paymentData: Omit<ReceivablePayment, 'id' | 'created_at'>
   ) => {
+    const activeUid = getActiveUserId();
     const newPayment: ReceivablePayment = {
       ...paymentData,
-      id: `rec_pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
+      user_id: paymentData.user_id && paymentData.user_id !== 'default-user' ? paymentData.user_id : activeUid,
       created_at: new Date().toISOString(),
     };
     await storage.recordReceivablePayment(newPayment);
@@ -573,14 +721,22 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveDebt = async (debt: Debt) => {
-    await storage.saveDebt(debt);
+    const activeUid = getActiveUserId();
+    const sanitized: Debt = {
+      ...debt,
+      id: isValidUUID(debt.id) ? debt.id : generateUUID(),
+      user_id: debt.user_id && debt.user_id !== 'default-user' ? debt.user_id : activeUid,
+    };
+    await storage.saveDebt(sanitized);
     await loadAll();
   };
 
   const recordDebtPayment = async (paymentData: Omit<DebtPayment, 'id' | 'created_at'>) => {
+    const activeUid = getActiveUserId();
     const newPayment: DebtPayment = {
       ...paymentData,
-      id: `debt_pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
+      user_id: paymentData.user_id && paymentData.user_id !== 'default-user' ? paymentData.user_id : activeUid,
       created_at: new Date().toISOString(),
     };
     await storage.recordDebtPayment(newPayment);
@@ -588,7 +744,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveBudget = async (budget: Budget) => {
-    await storage.saveBudget(budget);
+    const activeUid = getActiveUserId();
+    const sanitized: Budget = {
+      ...budget,
+      id: isValidUUID(budget.id) ? budget.id : generateUUID(),
+      user_id: budget.user_id && budget.user_id !== 'default-user' ? budget.user_id : activeUid,
+    };
+    await storage.saveBudget(sanitized);
     await loadAll();
   };
 

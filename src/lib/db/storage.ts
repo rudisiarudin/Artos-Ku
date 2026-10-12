@@ -22,8 +22,10 @@ import {
   DEFAULT_TRANSACTIONS,
   DEFAULT_REMINDERS,
 } from './seedData';
-import { addToSyncQueue, idbGet, idbSet } from './indexeddb';
+import { addToSyncQueue, idbGet, idbSet, clearSyncQueue } from './indexeddb';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { generateUUID, isValidUUID } from '../utils';
+import { normalizeCategoryId, normalizeReferenceId, processSyncQueue } from './sync';
 
 const STORAGE_KEYS = {
   ACCOUNTS: 'artosku_accounts',
@@ -97,7 +99,12 @@ class ArtosKuStorage {
     ]);
   }
 
-  // Purge any contaminated seed demo records from earlier demo sessions
+  async clearSyncQueue(): Promise<void> {
+    if (!this.isClient()) return;
+    await clearSyncQueue();
+  }
+
+  // Purge only legacy demo fixture records from earlier demo sessions
   async purgeDummyData(): Promise<void> {
     if (!this.isClient()) return;
     const cleanList = async (key: string) => {
@@ -108,7 +115,30 @@ class ArtosKuStorage {
           if (raw) list = JSON.parse(raw);
         }
         if (Array.isArray(list)) {
-          const filtered = list.filter((item) => item.user_id !== 'default-user');
+          // Only filter out items that match the exact static demo seed fixture IDs
+          const filtered = list.filter((item) => {
+            if (item.user_id === 'default-user' || item.user_id === 'demo-user') {
+              if (
+                item.id === 'acc-bca' ||
+                item.id === 'acc-mandiri' ||
+                item.id === 'acc-gopay' ||
+                item.id === 'acc-cash' ||
+                item.id === 'acc-rdi'
+              ) {
+                return false;
+              }
+              if (
+                typeof item.id === 'string' &&
+                (item.id.startsWith('tx-demo') ||
+                  item.id.startsWith('trade-') ||
+                  item.id.startsWith('rec-') ||
+                  item.id.startsWith('debt-'))
+              ) {
+                return false;
+              }
+            }
+            return true;
+          });
           if (filtered.length !== list.length) {
             await this.setCollection(key, filtered);
           }
@@ -136,21 +166,27 @@ class ArtosKuStorage {
   }
 
   async saveAccount(account: Account): Promise<void> {
+    const sanitizedAccount: Account = {
+      ...account,
+      id: isValidUUID(account.id) ? account.id : generateUUID(),
+    };
     const list = await this.getAccounts();
-    const index = list.findIndex((a) => a.id === account.id);
+    const index = list.findIndex((a) => a.id === sanitizedAccount.id);
     let updated: Account[];
     if (index >= 0) {
       updated = [...list];
-      updated[index] = account;
+      updated[index] = sanitizedAccount;
     } else {
-      updated = [account, ...list];
+      updated = [sanitizedAccount, ...list];
     }
     await this.setCollection(STORAGE_KEYS.ACCOUNTS, updated);
     await addToSyncQueue({
       action: index >= 0 ? 'update' : 'insert',
       table: 'accounts',
-      data: account,
+      data: sanitizedAccount,
     });
+    // Trigger non-blocking remote sync attempt
+    processSyncQueue().catch(() => {});
   }
 
   // TRANSACTIONS & STRICT FINANCIAL ACCOUNTING
@@ -159,18 +195,27 @@ class ArtosKuStorage {
   }
 
   async addTransaction(tx: Transaction): Promise<void> {
+    const sanitizedTx: Transaction = {
+      ...tx,
+      id: isValidUUID(tx.id) ? tx.id : generateUUID(),
+      category_id: normalizeCategoryId(tx.category_id),
+      reference_id: normalizeReferenceId(tx.reference_id),
+      source_account_id: isValidUUID(tx.source_account_id) ? tx.source_account_id : null,
+      destination_account_id: isValidUUID(tx.destination_account_id) ? tx.destination_account_id : null,
+    };
+
     const transactions = await this.getTransactions();
     const accounts = await this.getAccounts();
     const updatedAccounts = [...accounts];
 
     // Strictly apply accounting balances based on transaction type
-    const srcAcc = updatedAccounts.find((a) => a.id === tx.source_account_id);
-    const dstAcc = updatedAccounts.find((a) => a.id === tx.destination_account_id);
+    const srcAcc = updatedAccounts.find((a) => a.id === sanitizedTx.source_account_id);
+    const dstAcc = updatedAccounts.find((a) => a.id === sanitizedTx.destination_account_id);
 
-    switch (tx.type) {
+    switch (sanitizedTx.type) {
       case 'income':
         if (srcAcc) {
-          srcAcc.current_balance = Number(srcAcc.current_balance) + Number(tx.amount);
+          srcAcc.current_balance = Number(srcAcc.current_balance) + Number(sanitizedTx.amount);
         }
         break;
 
@@ -180,40 +225,42 @@ class ArtosKuStorage {
       case 'receivable_disbursement':
       case 'investment_buy':
         if (srcAcc) {
-          srcAcc.current_balance = Number(srcAcc.current_balance) - Number(tx.amount);
+          srcAcc.current_balance = Number(srcAcc.current_balance) - Number(sanitizedTx.amount);
         }
         break;
 
       case 'transfer':
         if (srcAcc && dstAcc) {
-          srcAcc.current_balance = Number(srcAcc.current_balance) - Number(tx.amount);
-          dstAcc.current_balance = Number(dstAcc.current_balance) + Number(tx.amount);
+          srcAcc.current_balance = Number(srcAcc.current_balance) - Number(sanitizedTx.amount);
+          dstAcc.current_balance = Number(dstAcc.current_balance) + Number(sanitizedTx.amount);
         }
         break;
 
       case 'investment_sell':
       case 'receivable_repayment':
         if (srcAcc) {
-          srcAcc.current_balance = Number(srcAcc.current_balance) + Number(tx.amount);
+          srcAcc.current_balance = Number(srcAcc.current_balance) + Number(sanitizedTx.amount);
         }
         break;
 
       case 'balance_adjustment':
         if (srcAcc) {
-          srcAcc.current_balance = Number(tx.amount);
+          srcAcc.current_balance = Number(sanitizedTx.amount);
         }
         break;
     }
 
-    const updatedTransactions = [tx, ...transactions];
+    const updatedTransactions = [sanitizedTx, ...transactions];
     await this.setCollection(STORAGE_KEYS.TRANSACTIONS, updatedTransactions);
     await this.setCollection(STORAGE_KEYS.ACCOUNTS, updatedAccounts);
 
     await addToSyncQueue({
       action: 'insert',
       table: 'transactions',
-      data: tx,
+      data: sanitizedTx,
     });
+    // Trigger non-blocking remote sync attempt
+    processSyncQueue().catch(() => {});
   }
 
   async deleteTransaction(txId: string): Promise<void> {
@@ -257,6 +304,7 @@ class ArtosKuStorage {
       table: 'transactions',
       data: { id: txId },
     });
+    processSyncQueue().catch(() => {});
   }
 
   // CATEGORIES
@@ -288,24 +336,28 @@ class ArtosKuStorage {
   }
 
   async addTrade(trade: InvestmentTrade): Promise<void> {
+    const sanitizedTrade: InvestmentTrade = {
+      ...trade,
+      id: isValidUUID(trade.id) ? trade.id : generateUUID(),
+    };
     const list = await this.getTrades();
-    await this.setCollection(STORAGE_KEYS.TRADES, [trade, ...list]);
+    await this.setCollection(STORAGE_KEYS.TRADES, [sanitizedTrade, ...list]);
 
     // Also register corresponding cash account deduction or credit
-    if (trade.account_id) {
+    if (sanitizedTrade.account_id) {
       const tx: Transaction = {
-        id: `tx_trade_${trade.id}`,
-        user_id: trade.user_id,
-        date: trade.trade_date,
-        type: trade.trade_type === 'buy' ? 'investment_buy' : 'investment_sell',
-        amount: trade.total_amount,
-        source_account_id: trade.account_id,
+        id: generateUUID(),
+        user_id: sanitizedTrade.user_id,
+        date: sanitizedTrade.trade_date,
+        type: sanitizedTrade.trade_type === 'buy' ? 'investment_buy' : 'investment_sell',
+        amount: sanitizedTrade.total_amount,
+        source_account_id: sanitizedTrade.account_id,
         destination_account_id: null,
         category_id: null,
-        description: `${trade.trade_type === 'buy' ? 'Beli' : 'Jual'} ${trade.shares_or_units} unit @ ${trade.price_per_unit}`,
-        notes: trade.notes || 'Transaksi Investasi',
+        description: `${sanitizedTrade.trade_type === 'buy' ? 'Beli' : 'Jual'} ${sanitizedTrade.shares_or_units} unit @ ${sanitizedTrade.price_per_unit}`,
+        notes: sanitizedTrade.notes || 'Transaksi Investasi',
         payment_method: 'brokerage',
-        reference_id: trade.id,
+        reference_id: normalizeReferenceId(sanitizedTrade.id),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -319,38 +371,46 @@ class ArtosKuStorage {
   }
 
   async saveReceivable(rec: Receivable): Promise<void> {
+    const sanitizedRec: Receivable = {
+      ...rec,
+      id: isValidUUID(rec.id) ? rec.id : generateUUID(),
+    };
     const list = await this.getReceivables();
-    const idx = list.findIndex((r) => r.id === rec.id);
-    const updated = idx >= 0 ? list.map((r) => (r.id === rec.id ? rec : r)) : [rec, ...list];
+    const idx = list.findIndex((r) => r.id === sanitizedRec.id);
+    const updated = idx >= 0 ? list.map((r) => (r.id === sanitizedRec.id ? sanitizedRec : r)) : [sanitizedRec, ...list];
     await this.setCollection(STORAGE_KEYS.RECEIVABLES, updated);
   }
 
   async recordReceivablePayment(payment: ReceivablePayment): Promise<void> {
+    const sanitizedPayment: ReceivablePayment = {
+      ...payment,
+      id: isValidUUID(payment.id) ? payment.id : generateUUID(),
+    };
     const receivables = await this.getReceivables();
-    const rec = receivables.find((r) => r.id === payment.receivable_id);
+    const rec = receivables.find((r) => r.id === sanitizedPayment.receivable_id);
     if (!rec) return;
 
-    rec.current_balance = Math.max(0, rec.current_balance - payment.principal_paid);
+    rec.current_balance = Math.max(0, rec.current_balance - sanitizedPayment.principal_paid);
     rec.status = rec.current_balance <= 0 ? 'paid' : 'partially_paid';
     await this.saveReceivable(rec);
 
     // Save payment
     const payments = await this.getCollection<ReceivablePayment>(STORAGE_KEYS.REC_PAYMENTS, []);
-    await this.setCollection(STORAGE_KEYS.REC_PAYMENTS, [payment, ...payments]);
+    await this.setCollection(STORAGE_KEYS.REC_PAYMENTS, [sanitizedPayment, ...payments]);
 
     // Update account balance: receipt of principal + interest
     const tx: Transaction = {
-      id: `tx_rec_pay_${payment.id}`,
-      user_id: payment.user_id,
-      date: payment.payment_date,
+      id: generateUUID(),
+      user_id: sanitizedPayment.user_id,
+      date: sanitizedPayment.payment_date,
       type: 'receivable_repayment',
-      amount: payment.total_received,
-      source_account_id: payment.account_id,
+      amount: sanitizedPayment.total_received,
+      source_account_id: sanitizedPayment.account_id,
       destination_account_id: null,
       category_id: null,
       description: `Pelunasan Piutang: ${rec.borrower_name}`,
-      notes: payment.notes || 'Pembayaran piutang',
-      reference_id: payment.id,
+      notes: sanitizedPayment.notes || 'Pembayaran piutang',
+      reference_id: normalizeReferenceId(sanitizedPayment.id),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -363,18 +423,26 @@ class ArtosKuStorage {
   }
 
   async saveDebt(debt: Debt): Promise<void> {
+    const sanitizedDebt: Debt = {
+      ...debt,
+      id: isValidUUID(debt.id) ? debt.id : generateUUID(),
+    };
     const list = await this.getDebts();
-    const idx = list.findIndex((d) => d.id === debt.id);
-    const updated = idx >= 0 ? list.map((d) => (d.id === debt.id ? debt : d)) : [debt, ...list];
+    const idx = list.findIndex((d) => d.id === sanitizedDebt.id);
+    const updated = idx >= 0 ? list.map((d) => (d.id === sanitizedDebt.id ? sanitizedDebt : d)) : [sanitizedDebt, ...list];
     await this.setCollection(STORAGE_KEYS.DEBTS, updated);
   }
 
   async recordDebtPayment(payment: DebtPayment): Promise<void> {
+    const sanitizedPayment: DebtPayment = {
+      ...payment,
+      id: isValidUUID(payment.id) ? payment.id : generateUUID(),
+    };
     const debts = await this.getDebts();
-    const debt = debts.find((d) => d.id === payment.debt_id);
+    const debt = debts.find((d) => d.id === sanitizedPayment.debt_id);
     if (!debt) return;
 
-    debt.current_principal = Math.max(0, debt.current_principal - payment.principal_paid);
+    debt.current_principal = Math.max(0, debt.current_principal - sanitizedPayment.principal_paid);
     debt.remaining_installments = Math.max(0, debt.remaining_installments - 1);
     if (debt.current_principal <= 0 || debt.remaining_installments <= 0) {
       debt.status = 'paid_off';
@@ -383,21 +451,21 @@ class ArtosKuStorage {
 
     // Save payment record
     const payments = await this.getCollection<DebtPayment>(STORAGE_KEYS.DEBT_PAYMENTS, []);
-    await this.setCollection(STORAGE_KEYS.DEBT_PAYMENTS, [payment, ...payments]);
+    await this.setCollection(STORAGE_KEYS.DEBT_PAYMENTS, [sanitizedPayment, ...payments]);
 
     // Record transaction
     const tx: Transaction = {
-      id: `tx_debt_pay_${payment.id}`,
-      user_id: payment.user_id,
-      date: payment.payment_date,
+      id: generateUUID(),
+      user_id: sanitizedPayment.user_id,
+      date: sanitizedPayment.payment_date,
       type: 'installment_payment',
-      amount: payment.total_amount,
-      source_account_id: payment.account_id,
+      amount: sanitizedPayment.total_amount,
+      source_account_id: sanitizedPayment.account_id,
       destination_account_id: null,
       category_id: null,
-      description: `Pembayaran ${debt.debt_name} (${debt.creditor_name}) ke-${payment.installment_number}`,
-      notes: `Pokok: Rp${payment.principal_paid.toLocaleString('id-ID')} | Bunga: Rp${payment.interest_paid.toLocaleString('id-ID')}`,
-      reference_id: payment.id,
+      description: `Pembayaran ${debt.debt_name} (${debt.creditor_name}) ke-${sanitizedPayment.installment_number}`,
+      notes: `Pokok: Rp${sanitizedPayment.principal_paid.toLocaleString('id-ID')} | Bunga: Rp${sanitizedPayment.interest_paid.toLocaleString('id-ID')}`,
+      reference_id: normalizeReferenceId(sanitizedPayment.id),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

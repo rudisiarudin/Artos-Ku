@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { X, Bitcoin } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
-import { cn } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 
 export function CryptoTradeModal() {
-  const { activeModal, setActiveModal, assets, accounts, addTrade, saveAsset } = useFinance();
+  const { activeModal, setActiveModal, assets, accounts, addTrade, saveAsset, user } = useFinance();
 
   const cryptoAssets = assets.filter((a) => a.asset_type === 'crypto');
 
@@ -52,10 +52,11 @@ export function CryptoTradeModal() {
           return;
         }
 
-        finalAssetId = `asset_crypto_${newTicker.toUpperCase().trim()}`;
+        const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+        finalAssetId = generateUUID();
         await saveAsset({
           id: finalAssetId,
-          user_id: 'default-user',
+          user_id: activeUid,
           asset_type: 'crypto',
           ticker: newTicker.toUpperCase().trim(),
           name: newName.trim(),
@@ -67,8 +68,9 @@ export function CryptoTradeModal() {
         });
       }
 
+      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
       await addTrade({
-        user_id: 'default-user',
+        user_id: activeUid,
         asset_id: finalAssetId,
         trade_type: tradeType,
         trade_date: new Date(tradeDate).toISOString(),

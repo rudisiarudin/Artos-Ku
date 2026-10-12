@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { X, Landmark } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { AccountType } from '../../lib/db/types';
+import { generateUUID } from '../../lib/utils';
 
 export function AccountFormModal() {
-  const { activeModal, setActiveModal, saveAccount } = useFinance();
+  const { activeModal, setActiveModal, saveAccount, user, accounts } = useFinance();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('bank');
@@ -32,10 +33,11 @@ export function AccountFormModal() {
     setError('');
 
     try {
-      const accId = `acc_${Date.now()}`;
+      const activeUid = user?.id || (accounts[0]?.user_id && accounts[0].user_id !== 'default-user' ? accounts[0].user_id : null) || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) || 'user_local';
+      const accId = generateUUID();
       await saveAccount({
         id: accId,
-        user_id: 'default-user',
+        user_id: activeUid,
         name: name.trim(),
         type,
         institution_name: institutionName.trim() || null,

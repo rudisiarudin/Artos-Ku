@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     notes TEXT,
     payment_method TEXT DEFAULT 'transfer',
     tags TEXT[],
-    reference_id UUID,
+    reference_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -90,7 +90,14 @@ ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS destination_account_id 
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL;
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'transfer';
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS tags TEXT[];
-ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS reference_id UUID;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS reference_id TEXT;
+DO $$
+BEGIN
+    ALTER TABLE public.transactions ALTER COLUMN reference_id TYPE TEXT USING reference_id::text;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END
+$$;
 
 -- 5. BUDGETS
 CREATE TABLE IF NOT EXISTS public.budgets (
@@ -341,18 +348,19 @@ BEGIN
         )
         ON CONFLICT (id) DO NOTHING;
 
-        -- 2. Insert Starter Categories
-        INSERT INTO public.categories (user_id, name, type, icon, color, is_system)
+        -- 2. Insert Starter Categories with deterministic UUIDs
+        INSERT INTO public.categories (id, user_id, name, type, icon, color, is_system)
         VALUES
-            (new.id, 'Gaji & Pendapatan', 'income', 'wallet', '#10B981', true),
-            (new.id, 'Makanan & Minuman', 'expense', 'coffee', '#F59E0B', true),
-            (new.id, 'Transportasi', 'expense', 'car', '#3B82F6', true),
-            (new.id, 'Tagihan & Utilitas', 'expense', 'receipt', '#EF4444', true),
-            (new.id, 'Belanja Kebutuhan', 'expense', 'shopping-bag', '#EC4899', true),
-            (new.id, 'Investasi & Tabungan', 'expense', 'trending-up', '#8B5CF6', true)
-        ON CONFLICT DO NOTHING;
+            ('c0000000-0000-4000-8000-000000000001', new.id, 'Gaji & Bonus', 'income', 'Wallet', '#10B981', true),
+            ('c0000000-0000-4000-8000-000000000002', new.id, 'Bisnis & Freelance', 'income', 'Briefcase', '#06B6D4', true),
+            ('c0000000-0000-4000-8000-000000000003', new.id, 'Makanan & Minuman', 'expense', 'Utensils', '#F59E0B', true),
+            ('c0000000-0000-4000-8000-000000000004', new.id, 'Transport & Bensin', 'expense', 'Car', '#3B82F6', true),
+            ('c0000000-0000-4000-8000-000000000005', new.id, 'Tagihan & Utilitas', 'expense', 'Zap', '#EF4444', true),
+            ('c0000000-0000-4000-8000-000000000006', new.id, 'Belanja & Belanjaan', 'expense', 'ShoppingBag', '#EC4899', true),
+            ('c0000000-0000-4000-8000-000000000007', new.id, 'Hiburan & Liburan', 'expense', 'Film', '#A855F7', true),
+            ('c0000000-0000-4000-8000-000000000008', new.id, 'Cicilan & Hutang', 'expense', 'CreditCard', '#DC2626', true)
+        ON CONFLICT (id) DO NOTHING;
     EXCEPTION WHEN OTHERS THEN
-        -- Ensures auth signup never fails even if profile or category table has an RLS or schema lock
         NULL;
     END;
 
