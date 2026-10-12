@@ -62,6 +62,23 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
     const queue = await getSyncQueue();
     if (queue.length === 0) return 0;
 
+    const TABLE_PRIORITY: Record<string, number> = {
+      accounts: 1,
+      categories: 2,
+      assets: 3,
+      receivables: 4,
+      debts: 5,
+      transactions: 6,
+      trades: 7,
+      receivable_payments: 8,
+      debt_payments: 9,
+      budgets: 10,
+      reminders: 11,
+    };
+    const sortedQueue = [...queue].sort(
+      (a, b) => (TABLE_PRIORITY[a.table] || 99) - (TABLE_PRIORITY[b.table] || 99)
+    );
+
     // Ensure categories exist in Supabase for this user
     try {
       const categoriesPayload = DEFAULT_CATEGORIES.map((cat) => ({
@@ -78,7 +95,7 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
       console.warn('[SyncEngine] Category seed sync notice:', catErr);
     }
 
-    for (const item of queue) {
+    for (const item of sortedQueue) {
       try {
         // Discard any dummy seed record items that should not be synced
         if (

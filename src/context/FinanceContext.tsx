@@ -201,17 +201,21 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       let resolvedAccs = cleanAccs;
       let resolvedTxs = cleanTxs;
 
-      // Hydrate from Supabase if local storage is empty for this user (e.g. new port or device)
-      if (resolvedAccs.length === 0 && isSupabaseConfigured() && supabase) {
+      // Sync with Supabase cloud database across devices (PC, Mobile, etc.)
+      if (isSupabaseConfigured() && supabase) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user?.id) {
-            const uid = session.user.id;
+          const uid = session?.user?.id || targetUserId;
+          if (uid) {
+            // 1. Process any pending offline edits from this device first
+            await processSyncQueue(uid);
+
+            // 2. Query latest authoritative state from Supabase
             const [dbAccs, dbTxs, dbAssets, dbTrades, dbRecs, dbDebts, dbBudgets, dbReminders] = await Promise.all([
-              supabase.from('accounts').select('*').eq('user_id', uid),
-              supabase.from('transactions').select('*').eq('user_id', uid),
+              supabase.from('accounts').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+              supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
               supabase.from('assets').select('*').eq('user_id', uid),
-              supabase.from('trades').select('*').eq('user_id', uid),
+              supabase.from('trades').select('*').eq('user_id', uid).order('date', { ascending: false }),
               supabase.from('receivables').select('*').eq('user_id', uid),
               supabase.from('debts').select('*').eq('user_id', uid),
               supabase.from('budgets').select('*').eq('user_id', uid),
@@ -252,7 +256,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } catch (fetchErr) {
-          console.warn('Could not hydrate from Supabase:', fetchErr);
+          console.warn('Could not sync/hydrate from Supabase:', fetchErr);
         }
       }
 
@@ -642,11 +646,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       updated_at: new Date().toISOString(),
     };
     await storage.addTransaction(newTx);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(newTx.user_id);
+    }
     await loadAll();
   };
 
   const deleteTransaction = async (id: string) => {
     await storage.deleteTransaction(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
     await loadAll();
   };
 
@@ -658,6 +668,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: account.user_id && account.user_id !== 'default-user' ? account.user_id : activeUid,
     };
     await storage.saveAccount(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
     await loadAll();
   };
 

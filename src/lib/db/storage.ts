@@ -259,6 +259,20 @@ class ArtosKuStorage {
       table: 'transactions',
       data: sanitizedTx,
     });
+    if (srcAcc) {
+      await addToSyncQueue({
+        action: 'update',
+        table: 'accounts',
+        data: srcAcc,
+      });
+    }
+    if (dstAcc) {
+      await addToSyncQueue({
+        action: 'update',
+        table: 'accounts',
+        data: dstAcc,
+      });
+    }
     // Trigger non-blocking remote sync attempt
     processSyncQueue().catch(() => {});
   }
@@ -304,6 +318,20 @@ class ArtosKuStorage {
       table: 'transactions',
       data: { id: txId },
     });
+    if (srcAcc) {
+      await addToSyncQueue({
+        action: 'update',
+        table: 'accounts',
+        data: srcAcc,
+      });
+    }
+    if (dstAcc) {
+      await addToSyncQueue({
+        action: 'update',
+        table: 'accounts',
+        data: dstAcc,
+      });
+    }
     processSyncQueue().catch(() => {});
   }
 

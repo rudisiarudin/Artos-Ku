@@ -22,6 +22,7 @@ import {
   Receipt,
   Briefcase,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatIDR, formatIndonesianDate } from '../lib/finance/formatters';
@@ -209,48 +210,79 @@ export default function DashboardPage() {
           </Badge>
         </div>
 
-        {/* 2. Total Balance & Cash Flow Card (Glassmorphic Luxury Hero) */}
-        <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card/95 to-emerald-500/5 p-4.5 sm:p-5 shadow-sm">
-          {/* Decorative ambient light */}
-          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-500/10 blur-2xl" />
-          <div className="pointer-events-none absolute -left-10 -bottom-10 h-36 w-36 rounded-full bg-blue-500/10 blur-2xl" />
+        {/* 2. Total Balance & Cash Flow Card (Luxury Executive Obsidian & Emerald Card) */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1727] via-[#0d2238] to-[#052824] border border-emerald-500/30 p-5 text-white shadow-2xl select-none">
+          {/* Holographic specular lighting accents */}
+          <div className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-emerald-500/25 blur-3xl" />
+          <div className="pointer-events-none absolute -left-14 -bottom-14 h-48 w-48 rounded-full bg-blue-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
 
+          {/* Header Row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total Kekayaan Bersih
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300/90 font-mono">
+                TOTAL KEKAYAAN BERSIH
+              </span>
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-300 border border-emerald-500/30">
+                IDR
               </span>
             </div>
             <button
               onClick={togglePrivacyMode}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95 cursor-pointer"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition active:scale-95 cursor-pointer backdrop-blur-md border border-white/10"
               aria-label={isPrivacyMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+              title={isPrivacyMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
             >
               {isPrivacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
 
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xs font-bold text-muted-foreground/80">Rp</span>
-            <span className="font-mono text-3xl font-extrabold tracking-tight text-foreground">
-              {isPrivacyMode ? '••••••••' : formatIDR(netWorthData.netWorth).replace('Rp', '').trim()}
+          {/* Main Balance Display */}
+          <div className="mt-3.5 flex items-baseline gap-2">
+            <span className="text-base font-bold text-emerald-400/90">Rp</span>
+            <span className="font-mono text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md">
+              {isPrivacyMode ? '••••••••••' : formatIDR(netWorthData.netWorth).replace('Rp', '').trim()}
             </span>
           </div>
 
-          {/* Cashflow strip */}
-          <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
+          {/* Asset Allocation Breakdown */}
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-3">
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-white/50 tracking-wider block">Kas & Bank</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-white/95 truncate block">
+                {isPrivacyMode ? '••••••' : formatIDR(netWorthData.totalCash)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-white/50 tracking-wider block">Investasi</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-white/95 truncate block">
+                {isPrivacyMode ? '••••••' : formatIDR(netWorthData.investmentValue)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-white/50 tracking-wider block">Hutang</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-rose-300 truncate block">
+                {isPrivacyMode ? '••••••' : formatIDR(netWorthData.totalDebts)}
+              </span>
+            </div>
+          </div>
+
+          {/* Cashflow Strip */}
+          <div className="mt-3.5 flex items-center justify-between gap-2 rounded-2xl bg-white/5 p-2.5 backdrop-blur-md border border-white/10">
             <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <ArrowDownRight className="h-3 w-3" />
+              <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 border border-emerald-500/30">
+                <ArrowDownRight className="h-3.5 w-3.5" />
                 <span>{isPrivacyMode ? '•••' : formatIDR(monthlyIncome)}</span>
               </div>
-              <div className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                <ArrowUpRight className="h-3 w-3" />
+              <div className="inline-flex items-center gap-1.5 rounded-xl bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold text-rose-300 border border-rose-500/30">
+                <ArrowUpRight className="h-3.5 w-3.5" />
                 <span>{isPrivacyMode ? '•••' : formatIDR(monthlyExpenses)}</span>
               </div>
             </div>
-            <span className="text-[10px] font-semibold text-muted-foreground shrink-0 uppercase tracking-wider">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/60 shrink-0">
               Bulan Ini
             </span>
           </div>
@@ -436,30 +468,41 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hero Card: Net Worth */}
-        <Card className="p-6">
+        {/* Hero Card: Net Worth (Desktop Obsidian & Emerald Card) */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1727] via-[#0d2238] to-[#052824] border border-emerald-500/30 p-7 text-white shadow-2xl select-none">
+          {/* Ambient light glow */}
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
             <div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total Kekayaan Bersih (Net Worth)
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-300/90 font-mono">
+                  TOTAL KEKAYAAN BERSIH (NET WORTH)
                 </span>
-                <Badge variant="secondary" className="text-[10px]">
-                  Seimbang
-                </Badge>
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                  IDR
+                </span>
                 <button
                   onClick={togglePrivacyMode}
-                  className="ml-2 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                  className="ml-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition active:scale-95 cursor-pointer backdrop-blur-md border border-white/10"
                   aria-label="Toggle Privacy Mode"
                 >
                   {isPrivacyMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
               </div>
-              <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                {isPrivacyMode ? 'Rp ••••••••••' : formatIDR(netWorthData.netWorth)}
+
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-xl font-bold text-emerald-400">Rp</span>
+                <span className="font-mono text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">
+                  {isPrivacyMode ? '••••••••••••' : formatIDR(netWorthData.netWorth).replace('Rp', '').trim()}
+                </span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-white/60">
                 Kas & Tabungan + Investasi Pasar + Piutang Tagih − Total Kewajiban Hutang
               </p>
             </div>
@@ -467,13 +510,13 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2.5">
               <Button
                 onClick={() => setActiveModal('transaction')}
-                className="gap-2 shadow-sm font-semibold"
+                className="gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold shadow-lg shadow-emerald-500/20 border-0 cursor-pointer"
               >
                 <PlusCircle className="h-4 w-4" />
                 <span>Catat Transaksi</span>
               </Button>
               <Link href="/reports">
-                <Button variant="outline" className="gap-1.5 shadow-sm">
+                <Button variant="outline" className="gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-sm backdrop-blur-md cursor-pointer">
                   <span>Lihat Laporan</span>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
@@ -482,41 +525,41 @@ export default function DashboardPage() {
           </div>
 
           {/* Breakdown Badges inside Hero */}
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-4">
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-md">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-white/60">
                 Kas & Rekening
               </span>
-              <div className="mt-1 font-mono text-sm font-bold text-foreground">
+              <div className="mt-1 font-mono text-base font-bold text-white">
                 {isPrivacyMode ? '••••••' : formatIDR(netWorthData.totalCash)}
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-md">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-white/60">
                 Nilai Investasi
               </span>
-              <div className="mt-1 font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="mt-1 font-mono text-base font-bold text-emerald-300">
                 {isPrivacyMode ? '••••••' : formatIDR(netWorthData.investmentValue)}
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-md">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-white/60">
                 Piutang Aktif
               </span>
-              <div className="mt-1 font-mono text-sm font-bold text-amber-600 dark:text-amber-400">
+              <div className="mt-1 font-mono text-base font-bold text-amber-300">
                 {isPrivacyMode ? '••••••' : formatIDR(netWorthData.totalReceivables)}
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                Sisa Hutang & Cicilan
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-md">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-white/60">
+                Kewajiban Hutang
               </span>
-              <div className="mt-1 font-mono text-sm font-bold text-rose-600 dark:text-rose-400">
+              <div className="mt-1 font-mono text-base font-bold text-rose-300">
                 {isPrivacyMode ? '••••••' : formatIDR(netWorthData.totalDebts)}
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Monthly Cash Flow Stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
