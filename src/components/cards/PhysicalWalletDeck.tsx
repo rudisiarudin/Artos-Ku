@@ -191,21 +191,16 @@ export function PhysicalWalletDeck() {
                 <div className="pointer-events-none absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-black/30 blur-2xl" />
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
-                {/* Top row: EMV Chip & Contactless on Left, Official Brand Logo on Right */}
+                {/* Top row: Clean Contactless Icon on Left, Official Bank Logo on Right */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {/* Realistic Gold EMV Contact Chip */}
-                    <div className="relative h-6 w-8 rounded-[5px] bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 p-0.5 shadow-inner border border-amber-600/50 flex flex-col justify-between">
-                      <div className="h-full w-full rounded-[3px] border border-amber-700/30 flex items-center justify-between px-0.5">
-                        <div className="w-1 h-full border-r border-amber-700/30" />
-                        <div className="w-1.5 h-1.5 rounded-full border border-amber-700/30" />
-                        <div className="w-1 h-full border-l border-amber-700/30" />
-                      </div>
-                    </div>
-                    <Wifi className="h-3.5 w-3.5 rotate-90 text-white/80" />
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-4 w-4 rotate-90 text-white/80" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/75 bg-white/10 px-2 py-0.5 rounded-full">
+                      {acc.type.toUpperCase()}
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-end shrink-0 max-w-[130px]">
+                  <div className="flex items-center justify-end shrink-0 max-w-[140px]">
                     {brandLogo || (
                       <span className="text-xs font-bold tracking-wide text-white drop-shadow-xs truncate">
                         {acc.institution_name || acc.name}

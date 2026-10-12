@@ -5,16 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home,
-  BarChart3,
+  Wallet,
+  TrendingUp,
+  Settings,
   Plus,
+  BarChart3,
   PiggyBank,
   MoreHorizontal,
   ArrowLeftRight,
-  TrendingUp,
   HandCoins,
   CreditCard,
   Landmark,
-  Settings,
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -40,8 +41,9 @@ export function BottomNav() {
 
   const navItems = [
     { id: 'home', label: 'Home', href: '/', icon: Home },
-    { id: 'reports', label: 'Laporan', href: '/reports', icon: BarChart3 },
-    { id: 'menu', label: 'Menu', href: '#menu', icon: MoreHorizontal, isAction: true },
+    { id: 'wallet', label: 'Wallet', href: '/accounts', icon: Wallet },
+    { id: 'investasi', label: 'Investasi', href: '/investments', icon: TrendingUp },
+    { id: 'settings', label: 'Settings', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -196,80 +198,56 @@ export function BottomNav() {
         </div>
       )}
 
-      {/* Floating Pill Dock Navigation (Exact Design 01) */}
-      <div className="fixed bottom-5 left-0 right-0 z-40 flex items-center justify-center px-4 pointer-events-none md:hidden">
-        <div className="flex items-center gap-2.5 pointer-events-auto max-w-[390px] w-full">
+      {/* Floating Pill Dock Navigation (Exact Design 01: Home, Wallet, Investasi, Settings + Catat) */}
+      <div className="fixed bottom-5 left-0 right-0 z-40 flex items-center justify-center px-3 pointer-events-none md:hidden">
+        <div className="flex items-center gap-2 pointer-events-auto max-w-[420px] w-full">
           
-          {/* Main Capsule Dock: Deep Navy rounded-full pill */}
-          <nav className="flex-1 bg-[#14202e] dark:bg-[#0f1724] border border-white/10 rounded-full p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.45)] flex items-center justify-between">
+          {/* Main Capsule Dock: Clean Matte Zinc rounded-full pill */}
+          <nav className="flex-1 bg-zinc-950/95 dark:bg-zinc-900/95 border border-zinc-800/90 rounded-full p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.5)] backdrop-blur-md flex items-center justify-between">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = item.isAction 
-                ? showMoreMenu || (pathname !== '/' && pathname !== '/reports')
-                : pathname === item.href && !showMoreMenu;
-
-              const content = (
-                <div
-                  className={cn(
-                    'flex items-center justify-center transition-all duration-300 rounded-full select-none cursor-pointer',
-                    isActive
-                      ? 'bg-white px-4 py-2 gap-2 shadow-sm font-extrabold'
-                      : 'text-white/65 hover:text-white px-3.5 py-2'
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      'h-5 w-5 transition-transform duration-200',
-                      isActive ? 'text-[#F05A28] stroke-[2.4] fill-[#F05A28]/25 scale-105' : 'stroke-[2]'
-                    )}
-                  />
-                  {isActive && (
-                    <span className="text-xs font-black tracking-tight text-zinc-900 whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
-                      {item.label}
-                    </span>
-                  )}
-                </div>
-              );
-
-              if (item.isAction) {
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setShowMoreMenu(!showMoreMenu)}
-                    className="focus:outline-none"
-                    aria-label={item.label}
-                  >
-                    {content}
-                  </button>
-                );
-              }
+              const isActive = pathname === item.href;
 
               return (
                 <Link
                   key={item.id}
                   href={item.href}
-                  onClick={() => setShowMoreMenu(false)}
                   className="focus:outline-none"
                   aria-label={item.label}
                 >
-                  {content}
+                  <div
+                    className={cn(
+                      'flex items-center justify-center transition-all duration-200 rounded-full select-none cursor-pointer',
+                      isActive
+                        ? 'bg-white text-zinc-950 px-3.5 py-1.5 gap-1.5 shadow-sm font-bold'
+                        : 'text-zinc-400 hover:text-white p-2'
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'h-4.5 w-4.5 transition-transform duration-200',
+                        isActive ? 'text-zinc-950 stroke-[2.4]' : 'stroke-[1.8]'
+                      )}
+                    />
+                    {isActive && (
+                      <span className="text-[11px] font-extrabold tracking-tight text-zinc-950 whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-150">
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
                 </Link>
               );
             })}
           </nav>
 
-          {/* Action Button: Detached Floating Circle (Row 4 in Design 01) */}
+          {/* Action Button: Detached Floating Circle (+ Catat) */}
           <button
-            onClick={() => setShowFabMenu(!showFabMenu)}
-            aria-label="Tambah Transaksi Cepat"
-            className={cn(
-              'h-14 w-14 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 shadow-[0_16px_36px_rgba(0,0,0,0.45)] active:scale-90 cursor-pointer select-none',
-              showFabMenu
-                ? 'bg-[#F05A28] text-white shadow-[#F05A28]/45 border-0'
-                : 'bg-[#14202e] dark:bg-[#0f1724] border border-white/10 text-white hover:border-[#F05A28]/50'
-            )}
+            onClick={() => setActiveModal('transaction')}
+            aria-label="Catat Transaksi"
+            title="Catat Transaksi"
+            className="h-12 w-12 shrink-0 rounded-full bg-zinc-950 dark:bg-zinc-900 border border-zinc-800/90 text-white flex items-center justify-center transition-all duration-200 shadow-[0_16px_36px_rgba(0,0,0,0.5)] backdrop-blur-md hover:bg-zinc-800 active:scale-90 cursor-pointer select-none"
           >
-            <Plus className={cn('h-6 w-6 stroke-[2.8] transition-transform duration-200', showFabMenu ? 'rotate-45' : '')} />
+            <Plus className="h-6 w-6 stroke-[2.6]" />
           </button>
 
         </div>
