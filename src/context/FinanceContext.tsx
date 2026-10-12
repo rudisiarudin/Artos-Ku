@@ -21,7 +21,7 @@ import {
   calculateNetWorth,
   PortfolioPosition,
 } from '../lib/finance/calculations';
-import { getSyncQueue } from '../lib/db/indexeddb';
+import { getSyncQueue, addToSyncQueue } from '../lib/db/indexeddb';
 import { supabase, isSupabaseConfigured } from '../lib/db/supabase';
 import { generateUUID, isValidUUID } from '../lib/utils';
 import { processSyncQueue } from '../lib/db/sync';
@@ -226,13 +226,31 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               supabase.from('reminders').select('*').eq('user_id', uid),
             ]);
 
-            if (dbAccs.data && dbAccs.data.length > 0) {
+            // If local has accounts that aren't yet in Supabase, push them to Supabase cloud
+            if (cleanAccs.length > 0 && (!dbAccs.data || dbAccs.data.length === 0)) {
+              for (const acc of cleanAccs) {
+                await addToSyncQueue({ action: 'insert', table: 'accounts', data: acc });
+              }
+              await processSyncQueue(uid);
+            } else if (dbAccs.data && dbAccs.data.length > 0) {
               resolvedAccs = dbAccs.data;
               await storage.setCollection('artosku_accounts', dbAccs.data);
             }
-            if (dbTxs.data && dbTxs.data.length > 0) {
-              resolvedTxs = dbTxs.data;
-              await storage.setCollection('artosku_transactions', dbTxs.data);
+
+            // If local has transactions that aren't yet in Supabase, push them to Supabase cloud
+            if (cleanTxs.length > 0 && (!dbTxs.data || dbTxs.data.length === 0)) {
+              for (const tx of cleanTxs) {
+                await addToSyncQueue({ action: 'insert', table: 'transactions', data: tx });
+              }
+              await processSyncQueue(uid);
+            } else if (dbTxs.data && dbTxs.data.length > 0) {
+              const normalizedTxs = dbTxs.data.map((t: any) => ({
+                ...t,
+                description: t.description || t.name || 'Transaksi',
+                type: t.type || t.kind || 'expense',
+              }));
+              resolvedTxs = normalizedTxs;
+              await storage.setCollection('artosku_transactions', normalizedTxs);
             }
             if (dbAssets.data && dbAssets.data.length > 0) {
               cleanAssets = dbAssets.data;

@@ -149,22 +149,35 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           if (error) console.warn('[SyncEngine] accounts upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'transactions') {
-          const txPayload = {
+          const txType = record.type || record.kind || 'expense';
+          const txDesc = record.description || record.name || 'Transaksi';
+          const txPayload: any = {
             id: record.id,
             user_id: activeUserId,
             date: record.date || new Date().toISOString(),
-            type: record.type,
+            type: txType,
+            kind: txType,
+            name: txDesc,
+            description: txDesc,
             amount: Number(record.amount || 0),
             source_account_id: isValidUUID(record.source_account_id) ? record.source_account_id : null,
             destination_account_id: isValidUUID(record.destination_account_id) ? record.destination_account_id : null,
             category_id: normalizeCategoryId(record.category_id),
-            description: record.description || 'Transaksi',
-            notes: record.notes || null,
             payment_method: record.payment_method || 'transfer',
             tags: Array.isArray(record.tags) ? record.tags : [],
             reference_id: normalizeReferenceId(record.reference_id),
           };
-          const { error } = await supabase.from('transactions').upsert(txPayload);
+          if (record.notes) {
+            txPayload.notes = record.notes;
+          }
+
+          let { error } = await supabase.from('transactions').upsert(txPayload);
+          // If Supabase schema does not have 'notes' column, remove and retry
+          if (error && (error.message.includes("'notes'") || error.message.includes('notes'))) {
+            delete txPayload.notes;
+            const retryRes = await supabase.from('transactions').upsert(txPayload);
+            error = retryRes.error;
+          }
           if (error) console.warn('[SyncEngine] transactions upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'receivables') {
