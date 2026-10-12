@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Bell, Moon, Sun } from 'lucide-react';
@@ -28,6 +28,11 @@ export function AppHeader() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { reminders } = useFinance();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const activeRemindersCount = reminders.filter((r) => !r.is_completed).length;
   const isHome = pathname === '/';
@@ -67,7 +72,11 @@ export function AppHeader() {
           className="rounded-xl border-border/80"
           aria-label="Toggle Dark/Light Mode"
         >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {mounted ? (
+            theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
+          ) : (
+            <span className="h-4 w-4 inline-block" />
+          )}
         </Button>
 
         {/* Notifications Button using shadcn Button */}
