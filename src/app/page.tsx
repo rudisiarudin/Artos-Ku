@@ -121,6 +121,13 @@ export default function DashboardPage() {
     return 'Rudi Si\'arudin';
   };
 
+  const getUserInitials = () => {
+    const name = getUserDisplayName();
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
   // Helper to pick category icon and colors
   const getTransactionVisuals = (tx: any) => {
     const isIncome =
@@ -179,59 +186,72 @@ export default function DashboardPage() {
       {/* ========================================================
           MOBILE VIEW: Exact Layout Inspired by Fintech Reference
          ======================================================== */}
-      <div className="space-y-5 sm:hidden">
+      <div className="space-y-4 sm:hidden">
         {/* 1. Header Greeting & Profile Status */}
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">{getGreeting()}</p>
-            <h2 className="text-xl font-extrabold tracking-tight text-foreground">
-              {getUserDisplayName()} 👋
-            </h2>
+        <div className="flex items-center justify-between rounded-2xl bg-card/60 border border-border/70 p-3 shadow-xs backdrop-blur-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 text-white font-black text-sm shadow-sm ring-2 ring-emerald-500/20 select-none">
+              {getUserInitials()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-muted-foreground">{getGreeting()}</p>
+              <h2 className="text-sm font-extrabold tracking-tight text-foreground truncate">
+                {getUserDisplayName()}
+              </h2>
+            </div>
           </div>
           <Badge
             variant="outline"
-            className="gap-1.5 px-2.5 py-1 text-[11px] font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shadow-xs"
+            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shadow-xs shrink-0"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>Aktif</span>
           </Badge>
         </div>
 
-        {/* 2. Total Balance & Cash Flow Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card/90 to-card/60 p-4.5 shadow-sm">
+        {/* 2. Total Balance & Cash Flow Card (Glassmorphic Luxury Hero) */}
+        <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card/95 to-emerald-500/5 p-4.5 sm:p-5 shadow-sm">
+          {/* Decorative ambient light */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-500/10 blur-2xl" />
+          <div className="pointer-events-none absolute -left-10 -bottom-10 h-36 w-36 rounded-full bg-blue-500/10 blur-2xl" />
+
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Kekayaan Bersih
-            </span>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Total Kekayaan Bersih
+              </span>
+            </div>
             <button
               onClick={togglePrivacyMode}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95 cursor-pointer"
               aria-label={isPrivacyMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
             >
               {isPrivacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
 
-          <div className="mt-1 font-mono text-3xl font-black tracking-tight text-foreground">
-            {isPrivacyMode ? 'Rp •••••••' : formatIDR(netWorthData.netWorth)}
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xs font-bold text-muted-foreground/80">Rp</span>
+            <span className="font-mono text-3xl font-extrabold tracking-tight text-foreground">
+              {isPrivacyMode ? '••••••••' : formatIDR(netWorthData.netWorth).replace('Rp', '').trim()}
+            </span>
           </div>
 
-          <div className="mt-3 flex items-center gap-3 border-t border-border/50 pt-2.5 text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <span className="text-[10px] font-bold">▲</span>
-              <span className="text-[11px] font-bold">
-                {isPrivacyMode ? '•••' : formatIDR(monthlyIncome)}
-              </span>
+          {/* Cashflow strip */}
+          <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <ArrowDownRight className="h-3 w-3" />
+                <span>{isPrivacyMode ? '•••' : formatIDR(monthlyIncome)}</span>
+              </div>
+              <div className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                <ArrowUpRight className="h-3 w-3" />
+                <span>{isPrivacyMode ? '•••' : formatIDR(monthlyExpenses)}</span>
+              </div>
             </div>
-            <span className="text-border">•</span>
-            <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-              <span className="text-[10px] font-bold">▼</span>
-              <span className="text-[11px] font-bold">
-                {isPrivacyMode ? '•••' : formatIDR(monthlyExpenses)}
-              </span>
-            </div>
-            <span className="ml-auto text-[10px] font-medium text-muted-foreground">
-              Bulan ini
+            <span className="text-[10px] font-semibold text-muted-foreground shrink-0 uppercase tracking-wider">
+              Bulan Ini
             </span>
           </div>
         </div>
@@ -249,20 +269,24 @@ export default function DashboardPage() {
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-base font-bold tracking-tight text-foreground">
-              Latest Transactions
+              Transaksi Terkini
             </h3>
             <Link
               href="/transactions"
-              className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+              className="text-xs font-semibold text-primary transition hover:underline"
             >
-              See all
+              Lihat Semua
             </Link>
           </div>
 
           <Card className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border shadow-sm">
             {recentTransactions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                Belum ada transaksi. Ketuk tombol + untuk mulai mencatat.
+              <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-muted-foreground">
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <p className="font-semibold text-foreground">Belum ada transaksi</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Ketuk tombol Catat di atas untuk transaksi baru.</p>
               </div>
             ) : (
               recentTransactions.map((tx) => {

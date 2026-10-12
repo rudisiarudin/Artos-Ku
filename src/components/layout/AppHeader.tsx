@@ -12,7 +12,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Ringkasan Finansial',
+  '/': 'ArtosKu',
   '/transactions': 'Catatan Transaksi',
   '/investments': 'Portofolio Investasi',
   '/accounts': 'Rekening & Dompet',
@@ -30,20 +30,30 @@ export function AppHeader() {
   const { reminders } = useFinance();
 
   const activeRemindersCount = reminders.filter((r) => !r.is_completed).length;
+  const isHome = pathname === '/';
   const currentTitle = PAGE_TITLES[pathname] || 'ArtosKu';
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 px-4 backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-3">
-        <Link href="/" className="md:hidden">
+        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
           <BrandLogo size="sm" showText={false} />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-extrabold tracking-tight text-foreground sm:text-lg">
+                {currentTitle}
+              </h1>
+              {isHome && (
+                <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  PRO
+                </span>
+              )}
+            </div>
+            <p className="hidden text-[11px] font-medium text-muted-foreground sm:block">
+              Personal Wealth & Finance Management
+            </p>
+          </div>
         </Link>
-        <div>
-          <h1 className="text-base font-bold text-foreground sm:text-lg">{currentTitle}</h1>
-          <p className="hidden text-[11px] text-muted-foreground sm:block">
-            Personal Finance & Wealth Management • IDR
-          </p>
-        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

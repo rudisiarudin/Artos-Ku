@@ -191,35 +191,44 @@ export function PhysicalWalletDeck() {
                 <div className="pointer-events-none absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-black/30 blur-2xl" />
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
-                {/* Top row: Brand Logo, Account Name, NFC */}
+                {/* Top row: EMV Chip & Contactless on Left, Official Brand Logo on Right */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {brandLogo || (
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur-md border border-white/20">
-                        <Wallet className="h-4 w-4 text-white" />
+                  <div className="flex items-center gap-2.5">
+                    {/* Realistic Gold EMV Contact Chip */}
+                    <div className="relative h-6 w-8 rounded-[5px] bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 p-0.5 shadow-inner border border-amber-600/50 flex flex-col justify-between">
+                      <div className="h-full w-full rounded-[3px] border border-amber-700/30 flex items-center justify-between px-0.5">
+                        <div className="w-1 h-full border-r border-amber-700/30" />
+                        <div className="w-1.5 h-1.5 rounded-full border border-amber-700/30" />
+                        <div className="w-1 h-full border-l border-amber-700/30" />
                       </div>
-                    )}
-                    <span className="text-xs font-semibold tracking-wide text-white/95 truncate max-w-[170px] drop-shadow-xs">
-                      {acc.name}
-                    </span>
+                    </div>
+                    <Wifi className="h-3.5 w-3.5 rotate-90 text-white/80" />
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Wifi className="h-4 w-4 rotate-90 text-white/80" />
+
+                  <div className="flex items-center justify-end shrink-0 max-w-[130px]">
+                    {brandLogo || (
+                      <span className="text-xs font-bold tracking-wide text-white drop-shadow-xs truncate">
+                        {acc.institution_name || acc.name}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Middle row: Balance & Account Type */}
                 <div className="my-auto py-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/70 block mb-0.5">
+                    {acc.name}
+                  </span>
                   <div className="font-mono text-2xl sm:text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
                     {isPrivacyMode ? 'Rp •••••••' : formatIDR(acc.current_balance)}
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                      {acc.type.toUpperCase()} ACCOUNT
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/75 bg-white/15 px-1.5 py-0.5 rounded backdrop-blur-xs">
+                      {acc.type.toUpperCase()}
                     </span>
                     {acc.institution_name && (
-                      <span className="text-[10px] text-white/60 truncate max-w-[140px]">
-                        • {acc.institution_name}
+                      <span className="text-[10px] text-white/70 truncate max-w-[160px]">
+                        {acc.institution_name}
                       </span>
                     )}
                   </div>
@@ -227,14 +236,19 @@ export function PhysicalWalletDeck() {
 
                 {/* Bottom row: Masked Account Number & Card Emblem */}
                 <div className="flex items-end justify-between pt-1">
-                  <div className="font-mono text-xs tracking-wider text-white/85">
-                    {formatCardNumber(acc.account_number)}
+                  <div>
+                    <div className="font-mono text-xs tracking-wider text-white/90 font-medium">
+                      {formatCardNumber(acc.account_number)}
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-white/60 font-semibold block">
+                      DEBIT CARD
+                    </span>
                   </div>
 
-                  {/* Overlapping Mastercard-style emblem */}
+                  {/* Overlapping Mastercard/Visa-style emblem */}
                   <div className="flex items-center">
-                    <div className="h-5 w-5 rounded-full bg-rose-500/90" />
-                    <div className="-ml-2.5 h-5 w-5 rounded-full bg-amber-400/90 backdrop-blur-sm" />
+                    <div className="h-5 w-5 rounded-full bg-rose-500/90 shadow-xs" />
+                    <div className="-ml-2.5 h-5 w-5 rounded-full bg-amber-400/90 backdrop-blur-sm shadow-xs" />
                   </div>
                 </div>
               </div>
