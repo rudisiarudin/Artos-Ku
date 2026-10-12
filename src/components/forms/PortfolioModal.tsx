@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Sparkles, Building2, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, TrendingUp, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { AssetType, InvestmentAsset } from '../../lib/db/types';
 import { formatIDR, formatPercentage } from '../../lib/finance/formatters';
 import { lotsToShares, sharesToLots } from '../../lib/finance/calculations';
 import { generateUUID, cn } from '../../lib/utils';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Card } from '../ui/card';
 
 const POPULAR_STOCKS: Record<string, string> = {
   BBCA: 'Bank Central Asia Tbk',
@@ -28,15 +31,15 @@ const POPULAR_STOCKS: Record<string, string> = {
 };
 
 const PLATFORMS = [
-  { id: 'Stockbit', label: 'Stockbit' },
-  { id: 'Ajaib', label: 'Ajaib' },
-  { id: 'Bibit', label: 'Bibit' },
-  { id: 'IPOT', label: 'IPOT' },
-  { id: 'Mirae', label: 'Mirae Sekuritas' },
-  { id: 'Mandiri Sekuritas', label: 'Mandiri Sekuritas' },
-  { id: 'Pluang', label: 'Pluang' },
-  { id: 'Indodax', label: 'Indodax' },
-  { id: 'Lainnya', label: 'Lainnya' },
+  'Stockbit',
+  'Ajaib',
+  'Bibit',
+  'IPOT',
+  'Mirae',
+  'Mandiri Sekuritas',
+  'Pluang',
+  'Indodax',
+  'Lainnya',
 ];
 
 export function PortfolioModal() {
@@ -50,17 +53,52 @@ export function PortfolioModal() {
   const [lotsStr, setLotsStr] = useState('1');
   const [unitsStr, setUnitsStr] = useState('100');
   const [avgPriceStr, setAvgPriceStr] = useState('');
-  const [currentPriceStr, setCurrentPriceStr] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Auto-fetched live market price state
+  const [marketPrice, setMarketPrice] = useState<number>(0);
+  const [isFetchingPrice, setIsFetchingPrice] = useState(false);
+  const [priceSource, setPriceSource] = useState<string>('');
+  const [priceChange24h, setPriceChange24h] = useState<number>(0);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isModalOpen = activeModal === 'portfolio_asset' || activeModal === 'stock_trade' || activeModal === 'crypto_trade';
+  const isModalOpen =
+    activeModal === 'portfolio_asset' ||
+    activeModal === 'stock_trade' ||
+    activeModal === 'crypto_trade';
+
+  // Fetch real-time market price via API
+  const fetchLiveMarketPrice = useCallback(
+    async (sym: string, type: AssetType) => {
+      const cleanSym = sym.trim().toUpperCase();
+      if (!cleanSym || cleanSym.length < 2) return;
+
+      setIsFetchingPrice(true);
+      try {
+        const res = await fetch(`/api/market-price?ticker=${encodeURIComponent(cleanSym)}&type=${type}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && typeof data.price === 'number' && data.price > 0) {
+            setMarketPrice(data.price);
+            setPriceSource(data.source || 'api');
+            setPriceChange24h(data.change24h || 0);
+          }
+        }
+      } catch {
+        // Quiet fallback
+      } finally {
+        setIsFetchingPrice(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (editingAsset) {
-      const knownPlat = PLATFORMS.some((p) => p.id === editingAsset.platform);
-      if (knownPlat) {
+      const isKnown = PLATFORMS.includes(editingAsset.platform || '');
+      if (isKnown) {
         setPlatform(editingAsset.platform || 'Stockbit');
         setCustomPlatform('');
       } else if (editingAsset.platform) {
@@ -84,10 +122,12 @@ export function PortfolioModal() {
       const avgP = Number(editingAsset.average_buy_price || editingAsset.current_price || 0);
       setAvgPriceStr(avgP ? new Intl.NumberFormat('id-ID').format(avgP) : '');
 
-      const curP = Number(editingAsset.current_price || 0);
-      setCurrentPriceStr(curP ? new Intl.NumberFormat('id-ID').format(curP) : '');
-
+      setMarketPrice(editingAsset.current_price || avgP);
       setNotes(editingAsset.notes || '');
+
+      if (editingAsset.ticker) {
+        fetchLiveMarketPrice(editingAsset.ticker, editingAsset.asset_type || 'stock');
+      }
     } else {
       setPlatform('Stockbit');
       setCustomPlatform('');
@@ -97,10 +137,12 @@ export function PortfolioModal() {
       setLotsStr('1');
       setUnitsStr('100');
       setAvgPriceStr('');
-      setCurrentPriceStr('');
+      setMarketPrice(0);
+      setPriceSource('');
+      setPriceChange24h(0);
       setNotes('');
     }
-  }, [editingAsset, isModalOpen]);
+  }, [editingAsset, isModalOpen, fetchLiveMarketPrice]);
 
   if (!isModalOpen) return null;
 
@@ -115,17 +157,29 @@ export function PortfolioModal() {
     if (assetType === 'stock' && POPULAR_STOCKS[val] && !name) {
       setName(POPULAR_STOCKS[val]);
     }
+    if (val.length >= 2) {
+      fetchLiveMarketPrice(val, assetType);
+    }
   };
 
-  // Parsing numerical values
-  const numLots = parseFloat(lotsStr.replace(/[^0-9.]/g, '')) || 0;
-  const numUnits = assetType === 'stock' ? lotsToShares(numLots) : (parseFloat(unitsStr.replace(/[^0-9.]/g, '')) || 0);
-  const numAvgPrice = parseFloat(avgPriceStr.replace(/[^0-9]/g, '')) || 0;
-  const numCurrentPrice = parseFloat(currentPriceStr.replace(/[^0-9]/g, '')) || numAvgPrice;
+  const handleAssetTypeChange = (newType: AssetType) => {
+    setAssetType(newType);
+    if (ticker.trim().length >= 2) {
+      fetchLiveMarketPrice(ticker, newType);
+    }
+  };
 
-  // Realtime Live Preview Calculation
+  // Calculations
+  const numLots = parseFloat(lotsStr.replace(/[^0-9.]/g, '')) || 0;
+  const numUnits =
+    assetType === 'stock'
+      ? lotsToShares(numLots)
+      : parseFloat(unitsStr.replace(/[^0-9.]/g, '')) || 0;
+  const numAvgPrice = parseFloat(avgPriceStr.replace(/[^0-9]/g, '')) || 0;
+  const effectiveCurrentPrice = marketPrice > 0 ? marketPrice : numAvgPrice;
+
   const totalCostBasis = numUnits * numAvgPrice;
-  const totalMarketValue = numUnits * numCurrentPrice;
+  const totalMarketValue = numUnits * effectiveCurrentPrice;
   const unrealizedPL = totalMarketValue - totalCostBasis;
   const unrealizedPLPercent = totalCostBasis > 0 ? (unrealizedPL / totalCostBasis) * 100 : 0;
 
@@ -152,8 +206,14 @@ export function PortfolioModal() {
     setError('');
 
     try {
-      const activeUid = user?.id || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) || 'user_local';
-      const resolvedPlatform = platform === 'Lainnya' ? (customPlatform.trim() || 'Lainnya') : platform;
+      const activeUid =
+        user?.id ||
+        (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) ||
+        'user_local';
+      const resolvedPlatform =
+        platform === 'Lainnya' ? customPlatform.trim() || 'Lainnya' : platform;
+
+      const finalPrice = marketPrice > 0 ? marketPrice : numAvgPrice;
 
       const assetPayload: InvestmentAsset = {
         id: editingAsset ? editingAsset.id : generateUUID(),
@@ -165,7 +225,7 @@ export function PortfolioModal() {
         lots: assetType === 'stock' ? numLots : null,
         shares_or_units: numUnits,
         average_buy_price: numAvgPrice,
-        current_price: numCurrentPrice > 0 ? numCurrentPrice : numAvgPrice,
+        current_price: finalPrice,
         exchange: assetType === 'stock' ? 'IDX' : undefined,
         currency: 'IDR',
         notes: notes.trim() || null,
@@ -185,136 +245,131 @@ export function PortfolioModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150"
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] rounded-t-3xl sm:rounded-2xl border-t sm:border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
+        className="w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] rounded-t-2xl sm:rounded-xl border border-border bg-card shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Mobile Drag Indicator */}
-        <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
-          <div className="h-1.5 w-12 rounded-full bg-muted-foreground/25" />
-        </div>
-
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-border/80 px-5 py-3.5 sm:px-6 sm:py-4 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <TrendingUp className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-foreground">
-                {editingAsset ? 'Ubah Catatan Portofolio' : 'Catat Portofolio Investasi'}
-              </h2>
-              <p className="text-[11px] text-muted-foreground">
-                Simpan kepemilikan saham/aset dari Ajaib, Stockbit, dll.
-              </p>
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-foreground tracking-tight">
+              {editingAsset ? 'Edit Catatan Portofolio' : 'Catat Portofolio Investasi'}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Simpan kepemilikan saham & aset dari Ajaib, Stockbit, dll.
+            </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:text-foreground cursor-pointer"
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           {error && (
-            <div className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-600">
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-xs font-medium text-destructive">
               {error}
             </div>
           )}
 
-          {/* 1. Platform / Sekuritas */}
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-              Platform Pembelian (Sekuritas / Exchange)
+          {/* Platform / Broker Picker */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              Platform Pembelian
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {PLATFORMS.map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  onClick={() => setPlatform(p.id)}
-                  className={cn(
-                    'rounded-xl px-3 py-1.5 text-xs font-semibold transition border cursor-pointer',
-                    platform === p.id
-                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                      : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
+              {PLATFORMS.map((p) => {
+                const isSelected = platform === p;
+                return (
+                  <button
+                    type="button"
+                    key={p}
+                    onClick={() => setPlatform(p)}
+                    className={cn(
+                      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors border cursor-pointer',
+                      isSelected
+                        ? 'bg-foreground text-background border-foreground font-semibold'
+                        : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
             </div>
             {platform === 'Lainnya' && (
               <input
                 type="text"
-                placeholder="Nama sekuritas / broker lain..."
+                placeholder="Nama sekuritas / broker..."
                 value={customPlatform}
                 onChange={(e) => setCustomPlatform(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-medium"
+                className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             )}
           </div>
 
-          {/* 2. Tipe Aset */}
+          {/* Kategori Aset & Ticker */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
                 Kategori Aset
               </label>
               <select
                 value={assetType}
-                onChange={(e) => setAssetType(e.target.value as AssetType)}
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-medium"
+                onChange={(e) => handleAssetTypeChange(e.target.value as AssetType)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
-                <option value="stock">Saham (IDX Indonesia)</option>
-                <option value="crypto">Cryptocurrency</option>
-                <option value="mutual_fund">Reksadana</option>
-                <option value="gold">Emas / Komoditas</option>
-                <option value="other">Aset Lainnya</option>
+                <option value="stock" className="bg-popover text-foreground">Saham (IDX Indonesia)</option>
+                <option value="crypto" className="bg-popover text-foreground">Cryptocurrency</option>
+                <option value="mutual_fund" className="bg-popover text-foreground">Reksadana</option>
+                <option value="gold" className="bg-popover text-foreground">Emas / Komoditas</option>
+                <option value="other" className="bg-popover text-foreground">Lainnya</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
                 Kode / Ticker
               </label>
               <input
                 type="text"
                 required
-                placeholder={assetType === 'stock' ? 'e.g. BBCA, BBRI' : 'e.g. BTC, ETH'}
+                placeholder={assetType === 'stock' ? 'BBCA' : 'BTC'}
                 value={ticker}
                 onChange={(e) => handleTickerChange(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-mono font-bold uppercase"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-xs font-mono font-bold uppercase text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
 
-          {/* 3. Nama Emiten / Aset */}
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1">
-              Nama Emiten / Perusahaan / Aset
+          {/* Nama Emiten / Aset */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              Nama Emiten / Aset
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Bank Central Asia Tbk"
+              placeholder="Bank Central Asia Tbk"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-medium"
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
-          {/* 4. Jumlah Kepemilikan (Lot vs Units) */}
+          {/* Jumlah Kepemilikan & Harga Beli Avg */}
           <div className="grid grid-cols-2 gap-3">
             {assetType === 'stock' ? (
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">
                   Jumlah Lot
                 </label>
                 <input
@@ -324,15 +379,15 @@ export function PortfolioModal() {
                   placeholder="10"
                   value={lotsStr}
                   onChange={(e) => setLotsStr(e.target.value.replace(/[^0-9.]/g, ''))}
-                  className="w-full rounded-xl border border-border bg-background p-2.5 font-mono text-xs font-bold"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 font-mono text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-                <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                  = {new Intl.NumberFormat('id-ID').format(numUnits)} lembar saham
-                </span>
+                <p className="text-[10px] text-muted-foreground">
+                  = {new Intl.NumberFormat('id-ID').format(numUnits)} lembar
+                </p>
               </div>
             ) : (
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">
                   Jumlah Unit / Koin
                 </label>
                 <input
@@ -342,14 +397,14 @@ export function PortfolioModal() {
                   placeholder="0.05"
                   value={unitsStr}
                   onChange={(e) => setUnitsStr(e.target.value.replace(/[^0-9.]/g, ''))}
-                  className="w-full rounded-xl border border-border bg-background p-2.5 font-mono text-xs font-bold"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 font-mono text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">
-                Harga Beli Avg (Rp / lbr)
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
+                Harga Beli Avg (Rp)
               </label>
               <input
                 type="text"
@@ -361,105 +416,133 @@ export function PortfolioModal() {
                   const val = e.target.value.replace(/[^0-9]/g, '');
                   setAvgPriceStr(val ? new Intl.NumberFormat('id-ID').format(Number(val)) : '');
                 }}
-                className="w-full rounded-xl border border-border bg-background p-2.5 font-mono text-xs font-bold"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 font-mono text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 Modal: {formatIDR(totalCostBasis)}
-              </span>
+              </p>
             </div>
           </div>
 
-          {/* 5. Harga Saat Ini (Current Price) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-muted-foreground">
-                Harga Pasar Saat Ini (Rp / lbr)
-              </label>
-              <button
-                type="button"
-                onClick={() => setCurrentPriceStr(avgPriceStr)}
-                className="text-[10px] font-semibold text-primary hover:underline cursor-pointer"
-              >
-                Samakan dengan Avg Buy
-              </button>
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder={avgPriceStr || '10.000'}
-              value={currentPriceStr}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                setCurrentPriceStr(val ? new Intl.NumberFormat('id-ID').format(Number(val)) : '');
-              }}
-              className="w-full rounded-xl border border-border bg-background p-2.5 font-mono text-xs font-bold"
-            />
-          </div>
-
-          {/* 6. Live Portfolio Value & Floating P/L Preview Card */}
-          {numUnits > 0 && numAvgPrice > 0 && (
-            <div className="rounded-2xl border border-border bg-muted/40 p-3.5 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
-                Ringkasan Portofolio ({ticker || 'Aset'})
+          {/* Auto-Fetched Live Market Price Info Card (No Manual Input Required) */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Harga Pasar Terkini (Otomatis dari API)
               </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Total Modal Beli</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatIDR(totalCostBasis)}
+              {isFetchingPrice ? (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <RefreshCw className="h-3 w-3 animate-spin" /> Mengambil pasar...
+                </span>
+              ) : marketPrice > 0 ? (
+                <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                  {priceSource === 'yahoo_finance'
+                    ? 'Bursa IDX (Live)'
+                    : priceSource === 'indodax'
+                    ? 'Indodax (Live)'
+                    : 'Pasar Terkini'}
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="flex items-baseline justify-between pt-0.5">
+              <div className="text-sm font-bold font-mono text-foreground">
+                {marketPrice > 0 ? (
+                  <>
+                    {formatIDR(marketPrice)}
+                    <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                      / {assetType === 'stock' ? 'lembar' : 'unit'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {ticker.trim()
+                      ? 'Sedang mengambil data pasar...'
+                      : 'Masukkan ticker untuk mengambil harga pasar'}
                   </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Nilai Portofolio Saat Ini</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatIDR(totalMarketValue)}
-                  </span>
-                </div>
+                )}
               </div>
-              <div className="border-t border-border/60 pt-2 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground">Floating Profit / Loss</span>
+
+              {marketPrice > 0 && numAvgPrice > 0 && (
                 <span
                   className={cn(
-                    'font-mono text-xs font-extrabold',
-                    unrealizedPL >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                    'text-xs font-semibold font-mono',
+                    marketPrice >= numAvgPrice
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
                   )}
                 >
-                  {unrealizedPL >= 0 ? '+' : ''}{formatIDR(unrealizedPL)} ({formatPercentage(unrealizedPLPercent)})
+                  {marketPrice >= numAvgPrice ? '+' : ''}
+                  {formatPercentage(((marketPrice - numAvgPrice) / numAvgPrice) * 100)}
                 </span>
+              )}
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              Harga pasar diambil otomatis dari bursa dan tidak perlu Anda isi manual.
+            </p>
+          </div>
+
+          {/* Live Preview of Portfolio Value & Floating P/L */}
+          {numUnits > 0 && numAvgPrice > 0 && (
+            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Nilai Portofolio Saat Ini</span>
+                  <span className="font-bold font-mono text-foreground">{formatIDR(totalMarketValue)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Floating Profit / Loss</span>
+                  <span
+                    className={cn(
+                      'font-bold font-mono',
+                      unrealizedPL >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    {unrealizedPL >= 0 ? '+' : ''}
+                    {formatIDR(unrealizedPL)} ({formatPercentage(unrealizedPLPercent)})
+                  </span>
+                </div>
               </div>
             </div>
           )}
 
-          {/* 7. Catatan Opsional */}
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1">
-              Catatan / Keterangan (Opsional)
+          {/* Catatan Tambahan (Opsional) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              Catatan (Opsional)
             </label>
             <input
               type="text"
-              placeholder="e.g. Hold jangka panjang, dividen hunter"
+              placeholder="Contoh: Akun Stockbit sekunder, target hold 1 tahun"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-medium"
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
-          {/* Info Badge: No Cash Account Deduction */}
-          <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-2.5 flex items-start gap-2 text-blue-600 dark:text-blue-400">
-            <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            <p className="text-[11px] leading-tight">
-              <strong>Hanya Catatan Portofolio:</strong> Form ini menyimpan data kepemilikan aset Anda di {platform}. Saldo rekening bank Anda tidak akan terpotong.
-            </p>
+          {/* Info Banner */}
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>Pencatatan portofolio ini tidak akan memotong saldo rekening bank Anda.</span>
           </div>
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-98 disabled:opacity-50 cursor-pointer"
-          >
-            {isSubmitting ? 'Menyimpan...' : editingAsset ? 'Simpan Perubahan Portofolio' : 'Simpan Catatan Portofolio'}
-          </button>
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full font-semibold cursor-pointer"
+            >
+              {isSubmitting
+                ? 'Menyimpan...'
+                : editingAsset
+                ? 'Simpan Perubahan Portofolio'
+                : 'Simpan Catatan Portofolio'}
+            </Button>
+          </div>
         </form>
       </div>
     </div>

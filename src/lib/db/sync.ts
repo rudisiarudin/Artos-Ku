@@ -249,6 +249,38 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           const { error } = await supabase.from('debts').upsert(debtPayload);
           if (error) console.warn('[SyncEngine] debts upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
+        } else if (table === 'receivable_payments') {
+          const paymentPayload = {
+            id: record.id,
+            user_id: activeUserId,
+            receivable_id: record.receivable_id,
+            account_id: record.account_id,
+            payment_date: record.payment_date || new Date().toISOString(),
+            principal_paid: Number(record.principal_paid || 0),
+            interest_paid: Number(record.interest_paid || 0),
+            total_received: Number(record.total_received || 0),
+            notes: record.notes || null,
+          };
+          const { error } = await supabase.from('receivable_payments').upsert(paymentPayload);
+          if (error) console.warn('[SyncEngine] receivable_payments upsert notice:', error.message);
+          await removeSyncQueueItem(item.id);
+        } else if (table === 'debt_payments') {
+          const debtPayPayload = {
+            id: record.id,
+            user_id: activeUserId,
+            debt_id: record.debt_id,
+            account_id: record.account_id,
+            payment_date: record.payment_date || new Date().toISOString(),
+            installment_number: Number(record.installment_number || 1),
+            principal_paid: Number(record.principal_paid || 0),
+            interest_paid: Number(record.interest_paid || 0),
+            fee_paid: Number(record.fee_paid || 0),
+            total_amount: Number(record.total_amount || 0),
+            notes: record.notes || null,
+          };
+          const { error } = await supabase.from('debt_payments').upsert(debtPayPayload);
+          if (error) console.warn('[SyncEngine] debt_payments upsert notice:', error.message);
+          await removeSyncQueueItem(item.id);
         } else {
           const { error } = await supabase.from(table).upsert(record);
           if (error) console.warn(`[SyncEngine] ${table} upsert notice:`, error.message);

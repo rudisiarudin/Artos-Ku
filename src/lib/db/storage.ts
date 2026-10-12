@@ -444,6 +444,26 @@ class ArtosKuStorage {
     const idx = list.findIndex((r) => r.id === sanitizedRec.id);
     const updated = idx >= 0 ? list.map((r) => (r.id === sanitizedRec.id ? sanitizedRec : r)) : [sanitizedRec, ...list];
     await this.setCollection(STORAGE_KEYS.RECEIVABLES, updated);
+
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'receivables',
+      data: sanitizedRec,
+    });
+    processSyncQueue().catch(() => {});
+  }
+
+  async deleteReceivable(id: string): Promise<void> {
+    const list = await this.getReceivables();
+    const updated = list.filter((r) => r.id !== id);
+    await this.setCollection(STORAGE_KEYS.RECEIVABLES, updated);
+
+    await addToSyncQueue({
+      action: 'delete',
+      table: 'receivables',
+      data: { id },
+    });
+    processSyncQueue().catch(() => {});
   }
 
   async recordReceivablePayment(payment: ReceivablePayment): Promise<void> {
@@ -462,6 +482,12 @@ class ArtosKuStorage {
     // Save payment
     const payments = await this.getCollection<ReceivablePayment>(STORAGE_KEYS.REC_PAYMENTS, []);
     await this.setCollection(STORAGE_KEYS.REC_PAYMENTS, [sanitizedPayment, ...payments]);
+
+    await addToSyncQueue({
+      action: 'insert',
+      table: 'receivable_payments',
+      data: sanitizedPayment,
+    });
 
     // Update account balance: receipt of principal + interest
     const tx: Transaction = {
@@ -496,6 +522,26 @@ class ArtosKuStorage {
     const idx = list.findIndex((d) => d.id === sanitizedDebt.id);
     const updated = idx >= 0 ? list.map((d) => (d.id === sanitizedDebt.id ? sanitizedDebt : d)) : [sanitizedDebt, ...list];
     await this.setCollection(STORAGE_KEYS.DEBTS, updated);
+
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'debts',
+      data: sanitizedDebt,
+    });
+    processSyncQueue().catch(() => {});
+  }
+
+  async deleteDebt(id: string): Promise<void> {
+    const list = await this.getDebts();
+    const updated = list.filter((d) => d.id !== id);
+    await this.setCollection(STORAGE_KEYS.DEBTS, updated);
+
+    await addToSyncQueue({
+      action: 'delete',
+      table: 'debts',
+      data: { id },
+    });
+    processSyncQueue().catch(() => {});
   }
 
   async recordDebtPayment(payment: DebtPayment): Promise<void> {
@@ -517,6 +563,12 @@ class ArtosKuStorage {
     // Save payment record
     const payments = await this.getCollection<DebtPayment>(STORAGE_KEYS.DEBT_PAYMENTS, []);
     await this.setCollection(STORAGE_KEYS.DEBT_PAYMENTS, [sanitizedPayment, ...payments]);
+
+    await addToSyncQueue({
+      action: 'insert',
+      table: 'debt_payments',
+      data: sanitizedPayment,
+    });
 
     // Record transaction
     const tx: Transaction = {

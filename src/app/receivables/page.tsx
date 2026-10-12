@@ -1,27 +1,37 @@
 'use client';
 
 import React from 'react';
-import { HandCoins, Plus, Calendar, Phone, CheckCircle2, AlertCircle } from 'lucide-react';
+import { HandCoins, Plus, Phone, Trash2, Calendar, ShieldCheck, FolderOpen } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR, formatIndonesianDate } from '../../lib/finance/formatters';
-import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { cn } from '../../lib/utils';
 
 export default function ReceivablesPage() {
-  const { receivables, netWorthData, setActiveModal } = useFinance();
+  const { receivables, netWorthData, setActiveModal, setSelectedReceivable, deleteReceivable } = useFinance();
 
   const totalOutstanding = netWorthData.totalReceivables;
   const activeCount = receivables.filter((r) => r.status !== 'paid').length;
+
+  const handleOpenPayment = (rec: any) => {
+    setSelectedReceivable(rec);
+    setActiveModal('receivable');
+  };
+
+  const handleCreateNew = () => {
+    setSelectedReceivable(null);
+    setActiveModal('receivable');
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">
-            Manajemen Piutang (Receivables)
+          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Kelola Piutang (Receivables)
           </h2>
           <p className="text-xs text-muted-foreground">
             Pantau uang yang Anda pinjamkan kepada orang lain dan riwayat pelunasan
@@ -29,101 +39,176 @@ export default function ReceivablesPage() {
         </div>
 
         <Button
-          onClick={() => setActiveModal('receivable')}
-          className="w-full sm:w-auto gap-1.5 text-xs sm:text-sm font-bold shadow-sm h-10 justify-center"
+          onClick={handleCreateNew}
+          className="gap-1.5 text-xs h-9 px-3.5 font-semibold"
         >
-          <Plus className="h-4 w-4 shrink-0" />
-          <span>Catat / Pelunasan Piutang</span>
+          <Plus className="h-3.5 w-3.5" />
+          <span>Pinjamkan Uang Baru</span>
         </Button>
       </div>
 
-      {/* Summary Card */}
-      <Card className="p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Piutang Belum Tertagih
-            </span>
-            <div className="mt-1 font-mono text-2xl font-bold text-amber-600 dark:text-amber-400 sm:text-3xl">
-              {formatIDR(totalOutstanding)}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Dari {activeCount} orang peminjam aktif
-            </p>
+      {/* Summary Cards (Shadcn/ui zinc) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            Total Piutang Belum Tertagih
+          </span>
+          <div className="mt-1.5 font-mono text-2xl font-bold text-foreground sm:text-3xl">
+            {formatIDR(totalOutstanding)}
           </div>
-        </div>
-      </Card>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Dari {activeCount} orang peminjam aktif
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            Status Pelunasan Piutang
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs font-medium">
+              {receivables.filter((r) => r.status === 'paid').length} Lunas
+            </Badge>
+            <Badge variant="outline" className="text-xs font-medium">
+              {activeCount} Belum Lunas
+            </Badge>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Uang yang masuk otomatis menambah saldo rekening tujuan Anda.
+          </p>
+        </Card>
+      </div>
 
       {/* Receivables List */}
-      <Card className="overflow-hidden shadow-sm">
+      <div className="space-y-3">
         {receivables.length === 0 ? (
-          <div className="p-8 text-center text-xs text-muted-foreground">
-            Tidak ada data piutang yang tercatat.
-          </div>
+          <Card className="p-10 text-center space-y-3">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <FolderOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Belum Ada Catatan Piutang
+              </p>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+                Catat saat Anda meminjamkan uang ke teman atau keluarga agar tidak lupa ditagih dan saldo keuangan tetap rapi.
+              </p>
+            </div>
+            <Button
+              onClick={handleCreateNew}
+              className="text-xs h-9 font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Pinjamkan Uang Baru
+            </Button>
+          </Card>
         ) : (
-          <div className="divide-y divide-border/60">
-            {receivables.map((rec) => {
-              const isPaid = rec.status === 'paid';
-              const isOverdue =
-                !isPaid && new Date(rec.due_date).getTime() < new Date().getTime();
+          receivables.map((rec) => {
+            const isPaid = rec.status === 'paid';
+            const isOverdue =
+              !isPaid && new Date(rec.due_date).getTime() < new Date().getTime();
 
-              return (
-                <div key={rec.id} className="p-5 transition hover:bg-muted/20">
-                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            return (
+              <Card
+                key={rec.id}
+                className="p-4 sm:p-5 transition hover:border-border/90"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Left Column: Borrower details */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                      <HandCoins className="h-4 w-4" />
+                    </div>
+
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-foreground">{rec.borrower_name}</h3>
-                        <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                            isPaid
-                              ? 'bg-emerald-500/10 text-emerald-600'
-                              : isOverdue
-                              ? 'bg-rose-500/10 text-rose-600'
-                              : rec.status === 'partially_paid'
-                              ? 'bg-amber-500/10 text-amber-600'
-                              : 'bg-blue-500/10 text-blue-600'
-                          }`}
+                        <h3 className="text-sm font-bold text-foreground">
+                          {rec.borrower_name}
+                        </h3>
+                        <Badge
+                          variant={isPaid ? 'secondary' : isOverdue ? 'destructive' : 'outline'}
+                          className={cn(
+                            'text-[10px] px-1.5 py-0',
+                            isPaid && 'text-emerald-600 dark:text-emerald-400',
+                            rec.status === 'partially_paid' && 'text-amber-600 dark:text-amber-400'
+                          )}
                         >
                           {isPaid
                             ? 'Lunas'
                             : isOverdue
-                            ? 'Jatuh Tempo (Overdue)'
+                            ? 'Jatuh Tempo'
                             : rec.status === 'partially_paid'
                             ? 'Dicicil Sebagian'
                             : 'Belum Dibayar'}
-                        </span>
+                        </Badge>
                       </div>
 
                       {rec.borrower_phone && (
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                           <Phone className="h-3 w-3" />
                           <span>{rec.borrower_phone}</span>
                         </div>
                       )}
 
-                      <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                        <span>Pinjaman: {formatIndonesianDate(rec.loan_date, 'short')}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
+                        <span>Pinjam: {formatIndonesianDate(rec.loan_date, 'short')}</span>
+                        <span>•</span>
                         <span>Jatuh Tempo: {formatIndonesianDate(rec.due_date, 'medium')}</span>
-                        {rec.purpose && <span>Tujuan: {rec.purpose}</span>}
+                        {rec.purpose && (
+                          <>
+                            <span>•</span>
+                            <span className="italic">{rec.purpose}</span>
+                          </>
+                        )}
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex flex-col sm:items-end border-t border-border/40 pt-2 sm:border-0 sm:pt-0">
-                      <span className="text-xs text-muted-foreground">Sisa Piutang:</span>
-                      <div className="font-mono text-base font-bold text-foreground">
+                  {/* Right Column: Balances & Actions */}
+                  <div className="flex flex-col sm:items-end gap-2 border-t sm:border-t-0 pt-3 sm:pt-0">
+                    <div className="flex items-baseline justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                      <span className="text-[11px] text-muted-foreground">Sisa Piutang:</span>
+                      <span className="font-mono text-base font-bold text-foreground">
                         {formatIDR(rec.current_balance)}
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">
-                        Pokok Awal: {formatIDR(rec.principal_amount)}
                       </span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      Pokok Awal: {formatIDR(rec.principal_amount)}
+                    </span>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {!isPaid && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenPayment(rec)}
+                          className="h-8 text-xs font-semibold px-3 cursor-pointer"
+                        >
+                          Bayar / Lunasi
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(`Hapus catatan piutang ${rec.borrower_name}?`)) {
+                            deleteReceivable(rec.id);
+                          }
+                        }}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive cursor-pointer"
+                        title="Hapus Piutang"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </Card>
+            );
+          })
         )}
-      </Card>
+      </div>
     </div>
   );
 }

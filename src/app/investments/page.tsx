@@ -1,24 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   RefreshCw,
   Plus,
-  Edit2,
+  Pencil,
   Trash2,
-  Check,
-  X,
-  PieChart as PieIcon,
-  Bitcoin,
-  Building2,
   FolderOpen,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import {
   formatIDR,
   formatPercentage,
-  formatStockQuantity,
 } from '../../lib/finance/formatters';
 import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';
 import { defaultMarketProvider } from '../../lib/finance/marketData';
@@ -32,11 +26,9 @@ export default function InvestmentsPage() {
 
   const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'crypto' | 'other'>('all');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
-  const [editingPriceAssetId, setEditingPriceAssetId] = useState<string | null>(null);
-  const [newPriceStr, setNewPriceStr] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Extract unique platforms present in user's portfolio
+  // Extract unique platforms
   const availablePlatforms = Array.from(
     new Set(assets.map((a) => a.platform).filter(Boolean))
   ) as string[];
@@ -50,12 +42,10 @@ export default function InvestmentsPage() {
 
   // Filtered positions based on Tab and Platform
   const filteredPositions = positions.filter((p) => {
-    // 1. Tab filter
     if (activeTab === 'stock' && p.assetType !== 'stock') return false;
     if (activeTab === 'crypto' && p.assetType !== 'crypto') return false;
     if (activeTab === 'other' && (p.assetType === 'stock' || p.assetType === 'crypto')) return false;
 
-    // 2. Platform filter
     if (selectedPlatform !== 'all') {
       const rawAsset = assets.find((a) => a.id === p.assetId);
       if (rawAsset?.platform !== selectedPlatform) return false;
@@ -66,12 +56,13 @@ export default function InvestmentsPage() {
 
   // Refresh prices using market data provider
   const handleRefreshMarketPrices = async () => {
+    if (assets.length === 0) return;
     setIsRefreshing(true);
     try {
       for (const asset of assets) {
         if (asset.asset_type === 'stock' || asset.asset_type === 'crypto') {
           const quote = await defaultMarketProvider.fetchPrice(asset.ticker, asset.asset_type);
-          if (quote.price > 0) {
+          if (quote.price > 0 && quote.price !== asset.current_price) {
             await saveAsset({
               ...asset,
               current_price: quote.price,
@@ -85,44 +76,20 @@ export default function InvestmentsPage() {
     }
   };
 
-  // Save manual price update
-  const handleSavePrice = async (assetId: string) => {
-    const asset = assets.find((a) => a.id === assetId);
-    if (!asset) return;
-
-    const price = parseFloat(newPriceStr.replace(/[^0-9.]/g, '')) || 0;
-    if (price > 0) {
-      await saveAsset({
-        ...asset,
-        current_price: price,
-        last_price_updated_at: new Date().toISOString(),
-      });
+  // Auto-refresh once on load if any stock or crypto exists
+  useEffect(() => {
+    if (assets.length > 0) {
+      handleRefreshMarketPrices();
     }
-    setEditingPriceAssetId(null);
-    setNewPriceStr('');
-  };
-
-  const getPlatformBadgeColor = (plat?: string | null) => {
-    switch (plat?.toLowerCase()) {
-      case 'stockbit':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25';
-      case 'ajaib':
-        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25';
-      case 'bibit':
-        return 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/25';
-      case 'indodax':
-        return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets.length]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">
+          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             Portofolio Investasi
           </h2>
           <p className="text-xs text-muted-foreground">
@@ -136,9 +103,9 @@ export default function InvestmentsPage() {
               setEditingAsset(null);
               setActiveModal('portfolio_asset');
             }}
-            className="gap-1.5 text-xs h-10 px-4 font-bold cursor-pointer"
+            className="gap-1.5 text-xs h-9 px-3.5 font-semibold"
           >
-            <Plus className="h-4 w-4 shrink-0" />
+            <Plus className="h-3.5 w-3.5" />
             <span>Catat Portofolio</span>
           </Button>
 
@@ -146,21 +113,21 @@ export default function InvestmentsPage() {
             variant="outline"
             onClick={handleRefreshMarketPrices}
             disabled={isRefreshing}
-            className="gap-1.5 text-xs h-10 px-3 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="gap-1.5 text-xs h-9 px-3 text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
             <span>{isRefreshing ? 'Memperbarui...' : 'Perbarui Harga Pasar'}</span>
           </Button>
         </div>
       </div>
 
-      {/* Overview Cards */}
+      {/* Overview Cards (Pure shadcn/ui zinc) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
             Total Nilai Portofolio
           </span>
-          <div className="mt-2">
+          <div className="mt-1.5">
             <CurrencyDisplay amount={totalMarketValue} size="xl" />
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -168,11 +135,11 @@ export default function InvestmentsPage() {
           </p>
         </Card>
 
-        <Card className="p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
             Floating Profit / Loss
           </span>
-          <div className="mt-2 flex items-baseline gap-2">
+          <div className="mt-1.5 flex items-baseline gap-2">
             <CurrencyDisplay
               amount={totalUnrealizedPL}
               type={totalUnrealizedPL >= 0 ? 'income' : 'expense'}
@@ -181,7 +148,7 @@ export default function InvestmentsPage() {
             />
             <span
               className={cn(
-                'text-xs font-extrabold',
+                'text-xs font-semibold font-mono',
                 totalUnrealizedPLPercent >= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-rose-600 dark:text-rose-400'
@@ -195,28 +162,28 @@ export default function InvestmentsPage() {
           </p>
         </Card>
 
-        <Card className="p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
             Total Modal Investasi
           </span>
-          <div className="mt-2">
+          <div className="mt-1.5">
             <CurrencyDisplay amount={totalCostBasis} size="lg" />
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Rata-rata modal pembelian (Cost Basis)
+            Modal pembelian (Cost Basis)
           </p>
         </Card>
 
-        <Card className="p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <Card className="p-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
             Aset & Platform Aktif
           </span>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge variant="secondary" className="text-xs font-bold">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Badge variant="secondary" className="text-xs font-medium">
               {positions.length} Aset
             </Badge>
             {availablePlatforms.map((plat) => (
-              <Badge key={plat} variant="outline" className="text-[10px] font-semibold">
+              <Badge key={plat} variant="outline" className="text-[10px]">
                 {plat}
               </Badge>
             ))}
@@ -227,16 +194,16 @@ export default function InvestmentsPage() {
         </Card>
       </div>
 
-      {/* Tabs & Platform Filters */}
+      {/* Tabs & Filters */}
       <div className="space-y-3">
         {/* Category Tabs */}
         <div className="flex border-b border-border overflow-x-auto">
           <button
             onClick={() => setActiveTab('all')}
             className={cn(
-              'border-b-2 px-4 py-2.5 text-xs font-bold transition whitespace-nowrap cursor-pointer',
+              'border-b-2 px-4 py-2 text-xs font-medium transition whitespace-nowrap cursor-pointer',
               activeTab === 'all'
-                ? 'border-primary text-foreground'
+                ? 'border-foreground text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
@@ -245,9 +212,9 @@ export default function InvestmentsPage() {
           <button
             onClick={() => setActiveTab('stock')}
             className={cn(
-              'border-b-2 px-4 py-2.5 text-xs font-bold transition whitespace-nowrap cursor-pointer',
+              'border-b-2 px-4 py-2 text-xs font-medium transition whitespace-nowrap cursor-pointer',
               activeTab === 'stock'
-                ? 'border-primary text-foreground'
+                ? 'border-foreground text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
@@ -256,9 +223,9 @@ export default function InvestmentsPage() {
           <button
             onClick={() => setActiveTab('crypto')}
             className={cn(
-              'border-b-2 px-4 py-2.5 text-xs font-bold transition whitespace-nowrap cursor-pointer',
+              'border-b-2 px-4 py-2 text-xs font-medium transition whitespace-nowrap cursor-pointer',
               activeTab === 'crypto'
-                ? 'border-primary text-foreground'
+                ? 'border-foreground text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
@@ -267,9 +234,9 @@ export default function InvestmentsPage() {
           <button
             onClick={() => setActiveTab('other')}
             className={cn(
-              'border-b-2 px-4 py-2.5 text-xs font-bold transition whitespace-nowrap cursor-pointer',
+              'border-b-2 px-4 py-2 text-xs font-medium transition whitespace-nowrap cursor-pointer',
               activeTab === 'other'
-                ? 'border-primary text-foreground'
+                ? 'border-foreground text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
@@ -279,27 +246,27 @@ export default function InvestmentsPage() {
 
         {/* Platform Filter Buttons */}
         {availablePlatforms.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-xs font-semibold text-muted-foreground mr-1">Platform:</span>
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <span className="text-xs font-medium text-muted-foreground mr-1">Platform:</span>
             <button
               onClick={() => setSelectedPlatform('all')}
               className={cn(
-                'rounded-lg px-2.5 py-1 text-xs font-semibold transition border cursor-pointer',
+                'rounded-md px-2.5 py-1 text-xs font-medium transition border cursor-pointer',
                 selectedPlatform === 'all'
-                  ? 'bg-foreground text-background border-foreground'
+                  ? 'bg-foreground text-background border-foreground font-semibold'
                   : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
               )}
             >
-              Semua Platform
+              Semua
             </button>
             {availablePlatforms.map((plat) => (
               <button
                 key={plat}
                 onClick={() => setSelectedPlatform(plat)}
                 className={cn(
-                  'rounded-lg px-2.5 py-1 text-xs font-semibold transition border cursor-pointer',
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition border cursor-pointer',
                   selectedPlatform === plat
-                    ? 'bg-foreground text-background border-foreground'
+                    ? 'bg-foreground text-background border-foreground font-semibold'
                     : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -310,17 +277,19 @@ export default function InvestmentsPage() {
         )}
       </div>
 
-      {/* Positions Table / Cards */}
-      <Card className="overflow-hidden shadow-sm">
+      {/* Positions List */}
+      <div className="space-y-3">
         {filteredPositions.length === 0 ? (
-          <div className="p-10 text-center space-y-3">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-              <FolderOpen className="h-6 w-6" />
+          <Card className="p-10 text-center space-y-3">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <FolderOpen className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Belum Ada Catatan Portofolio</h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
-                Catat kepemilikan saham atau aset yang Anda miliki di Ajaib, Stockbit, atau sekuritas lain untuk memantau performa investasi Anda di ArtosKu.
+              <p className="text-sm font-semibold text-foreground">
+                Belum Ada Catatan Portofolio
+              </p>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+                Catat kepemilikan saham atau aset yang Anda miliki di Ajaib, Stockbit, atau sekuritas lain. Harga pasar akan diambil otomatis dari API.
               </p>
             </div>
             <Button
@@ -328,194 +297,138 @@ export default function InvestmentsPage() {
                 setEditingAsset(null);
                 setActiveModal('portfolio_asset');
               }}
-              className="gap-1.5 text-xs font-bold cursor-pointer"
+              className="text-xs h-9 font-semibold"
             >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Catat Portofolio Sekarang</span>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Catat Portofolio Sekarang
             </Button>
-          </div>
+          </Card>
         ) : (
-          <div className="divide-y divide-border/60">
-            {filteredPositions.map((pos) => {
-              const isProfit = pos.unrealizedPL >= 0;
-              const isEditingPrice = editingPriceAssetId === pos.assetId;
-              const rawAsset = assets.find((a) => a.id === pos.assetId);
+          filteredPositions.map((pos) => {
+            const rawAsset = assets.find((a) => a.id === pos.assetId);
 
-              return (
-                <div key={pos.assetId} className="p-4 transition hover:bg-muted/20">
-                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                    {/* Left: Asset Identity & Platform */}
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl',
-                          pos.assetType === 'stock'
-                            ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                            : pos.assetType === 'crypto'
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        )}
-                      >
-                        {pos.assetType === 'stock' ? (
-                          <TrendingUp className="h-5 w-5" />
-                        ) : pos.assetType === 'crypto' ? (
-                          <Bitcoin className="h-5 w-5" />
-                        ) : (
-                          <Building2 className="h-5 w-5" />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-base font-black tracking-tight text-foreground font-mono">
-                            {pos.ticker}
-                          </h4>
-                          {pos.platform && (
-                            <span
-                              className={cn(
-                                'rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                                getPlatformBadgeColor(pos.platform)
-                              )}
-                            >
-                              {pos.platform}
-                            </span>
-                          )}
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">
-                            {pos.assetType === 'stock' ? 'IDX' : pos.assetType}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-medium mt-0.5">{pos.name}</p>
-
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span>
-                            Kepemilikan:{' '}
-                            <strong className="text-foreground font-mono">
-                              {pos.assetType === 'stock'
-                                ? `${pos.totalLots ? `${pos.totalLots} Lot` : ''} (${formatStockQuantity(pos.totalSharesOrUnits)})`
-                                : `${pos.totalSharesOrUnits} unit`}
-                            </strong>
-                          </span>
-                          <span>
-                            Avg Buy:{' '}
-                            <strong className="text-foreground font-mono">
-                              {formatIDR(pos.averageCost)}
-                            </strong>
-                          </span>
-                          <span>
-                            Modal:{' '}
-                            <strong className="text-foreground font-mono">
-                              {formatIDR(pos.totalCostBasis)}
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
+            return (
+              <Card
+                key={pos.assetId}
+                className="p-4 sm:p-5 transition hover:border-border/90"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Left Column: Ticker, Name, Platform Badge */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground font-mono font-bold text-xs">
+                      {pos.ticker.slice(0, 4)}
                     </div>
-
-                    {/* Right: Market Value, Floating P/L & Action Buttons */}
-                    <div className="flex flex-col sm:items-end justify-between border-t border-border/40 pt-3 sm:border-0 sm:pt-0 gap-1.5">
-                      {/* Price Row with Quick Edit */}
+                    <div>
                       <div className="flex items-center gap-2">
-                        {isEditingPrice ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              value={newPriceStr}
-                              onChange={(e) => setNewPriceStr(e.target.value)}
-                              placeholder="Harga Baru"
-                              className="w-28 rounded-lg border border-border bg-background p-1 text-xs font-mono"
-                            />
-                            <button
-                              onClick={() => handleSavePrice(pos.assetId)}
-                              className="flex h-6 w-6 items-center justify-center rounded bg-primary text-white cursor-pointer"
-                              title="Simpan Harga"
-                            >
-                              <Check className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => setEditingPriceAssetId(null)}
-                              className="flex h-6 w-6 items-center justify-center rounded bg-muted text-muted-foreground cursor-pointer"
-                              title="Batal"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">Harga Sekarang:</span>
-                            <span className="font-mono text-sm font-extrabold text-foreground">
-                              {formatIDR(pos.currentPrice)}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setEditingPriceAssetId(pos.assetId);
-                                setNewPriceStr(pos.currentPrice.toString());
-                              }}
-                              title="Update Harga Pasar Cepat"
-                              className="text-muted-foreground hover:text-foreground cursor-pointer"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
-                          </div>
+                        <h3 className="font-bold text-foreground text-base tracking-tight font-mono">
+                          {pos.ticker}
+                        </h3>
+                        {rawAsset?.platform && (
+                          <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-border text-muted-foreground">
+                            {rawAsset.platform}
+                          </Badge>
                         )}
-
-                        {/* Edit & Delete Action Buttons */}
-                        <div className="ml-2 flex items-center gap-1 border-l border-border pl-2">
-                          <button
-                            onClick={() => {
-                              if (rawAsset) {
-                                setEditingAsset(rawAsset);
-                                setActiveModal('portfolio_asset');
-                              }
-                            }}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
-                            title="Ubah Catatan Portofolio"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (window.confirm(`Hapus catatan ${pos.ticker} (${pos.name}) dari portofolio?`)) {
-                                await deleteAsset(pos.assetId);
-                              }
-                            }}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 transition cursor-pointer"
-                            title="Hapus dari Portofolio"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {pos.assetType === 'stock' ? 'IDX' : pos.assetType === 'crypto' ? 'Crypto' : 'Aset'}
+                        </Badge>
                       </div>
-
-                      {/* Market Value */}
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Nilai Portofolio: </span>
-                        <span className="font-mono text-sm font-bold text-foreground">
-                          {formatIDR(pos.currentMarketValue)}
-                        </span>
-                      </div>
-
-                      {/* Floating P/L */}
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <span className="text-muted-foreground">Floating P/L: </span>
-                        <span
-                          className={cn(
-                            'font-mono font-extrabold',
-                            isProfit
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-rose-600 dark:text-rose-400'
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                        {pos.name}
+                      </p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground font-mono">
+                        <span>
+                          {pos.assetType === 'stock' && pos.totalLots !== null && pos.totalLots !== undefined ? (
+                            <>
+                              <strong className="text-foreground">{pos.totalLots}</strong> lot ({new Intl.NumberFormat('id-ID').format(pos.totalSharesOrUnits)} lbr)
+                            </>
+                          ) : (
+                            <>
+                              <strong className="text-foreground">{pos.totalSharesOrUnits}</strong> unit
+                            </>
                           )}
-                        >
-                          {isProfit ? '+' : ''}{formatIDR(pos.unrealizedPL)} ({formatPercentage(pos.unrealizedPLPercentage)})
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Avg: <strong className="text-foreground">{formatIDR(pos.averageCost)}</strong>
                         </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Middle Column: Market Price & Valuation */}
+                  <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block uppercase font-medium">
+                        Harga Pasar (API)
+                      </span>
+                      <span className="text-sm font-bold font-mono text-foreground">
+                        {formatIDR(pos.currentPrice)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">
+                        Modal: {formatIDR(pos.totalCostBasis)}
+                      </span>
+                    </div>
+
+                    <div className="text-right sm:text-left">
+                      <span className="text-[10px] text-muted-foreground block uppercase font-medium">
+                        Nilai Pasar & P/L
+                      </span>
+                      <span className="text-sm font-bold font-mono text-foreground">
+                        {formatIDR(pos.currentMarketValue)}
+                      </span>
+                      <div className="flex items-center justify-end sm:justify-start gap-1">
+                        <span
+                          className={cn(
+                            'text-xs font-semibold font-mono',
+                            pos.unrealizedPL >= 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                          )}
+                        >
+                          {pos.unrealizedPL >= 0 ? '+' : ''}
+                          {formatIDR(pos.unrealizedPL)} ({formatPercentage(pos.unrealizedPLPercentage)})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions: Edit & Delete */}
+                    <div className="col-span-2 sm:col-span-1 flex items-center justify-end gap-1 pt-1 sm:pt-0 border-t sm:border-t-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (rawAsset) {
+                            setEditingAsset(rawAsset);
+                            setActiveModal('portfolio_asset');
+                          }
+                        }}
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title="Edit Kepemilikan"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(`Hapus catatan ${pos.ticker} dari portofolio?`)) {
+                            deleteAsset(pos.assetId);
+                          }
+                        }}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title="Hapus Aset"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              </Card>
+            );
+          })
         )}
-      </Card>
+      </div>
     </div>
   );
 }

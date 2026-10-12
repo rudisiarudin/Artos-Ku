@@ -48,34 +48,52 @@ export class PublicFintechMarketProvider implements MarketDataProvider {
   async fetchPrice(ticker: string, assetType: 'stock' | 'crypto'): Promise<PriceQuote> {
     const cleanTicker = ticker.toUpperCase().trim();
 
-    if (assetType === 'crypto') {
-      const coingeckoId = this.cryptoIdMap[cleanTicker];
-      if (coingeckoId) {
-        try {
-          const res = await fetch(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=idr&include_24hr_change=true`,
-            { signal: AbortSignal.timeout(4000) }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (data[coingeckoId]?.idr) {
-              return {
-                ticker: cleanTicker,
-                price: data[coingeckoId].idr,
-                currency: 'IDR',
-                timestamp: new Date().toISOString(),
-                source: 'market_api',
-                change24hPercentage: data[coingeckoId].idr_24h_change || 0,
-              };
-            }
+    // 1. Try unified server-side API endpoint (avoids CORS, fetches real-time Yahoo Finance & Indodax)
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch(`/api/market-price?ticker=${encodeURIComponent(cleanTicker)}&type=${assetType}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && typeof data.price === 'number' && data.price > 0) {
+            return {
+              ticker: cleanTicker,
+              price: data.price,
+              currency: data.currency || 'IDR',
+              timestamp: data.timestamp || new Date().toISOString(),
+              source: 'market_api',
+              change24hPercentage: data.change24h || 0,
+            };
           }
-        } catch {
-          // Network timeout or rate-limit -> fallback gracefully
         }
+      } catch {
+        // Continue to client-side fallback
       }
     }
 
-    // IDX Stocks or fallback
+    // 2. Direct Crypto client fallback (Indodax public API)
+    if (assetType === 'crypto') {
+      try {
+        const res = await fetch(`https://indodax.com/api/ticker/${cleanTicker.toLowerCase()}idr`);
+        if (res.ok) {
+          const data = await res.json();
+          const lastPrice = parseFloat(data?.ticker?.last);
+          if (!isNaN(lastPrice) && lastPrice > 0) {
+            return {
+              ticker: cleanTicker,
+              price: lastPrice,
+              currency: 'IDR',
+              timestamp: new Date().toISOString(),
+              source: 'market_api',
+              change24hPercentage: 0,
+            };
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // 3. IDX Stocks benchmark fallback
     const benchmarkPrice = this.idxBenchmark[cleanTicker] || 0;
     return {
       ticker: cleanTicker,

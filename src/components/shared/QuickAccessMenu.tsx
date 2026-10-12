@@ -11,10 +11,8 @@ import {
   CircleDollarSign,
   Bell,
   Settings,
-  ChevronRight,
-  Sparkles,
 } from 'lucide-react';
-import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
 interface QuickAccessItem {
@@ -23,34 +21,15 @@ interface QuickAccessItem {
   description: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  gradient: string;
-  badge?: string;
 }
 
 const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
   {
     id: 'accounts',
     title: 'Rekening',
-    description: 'Bank & E-Wallet',
+    description: 'Bank & Dompet',
     href: '/accounts',
     icon: Wallet,
-    gradient: 'from-blue-500 to-indigo-600 text-blue-500 bg-blue-500/10 dark:bg-blue-500/15',
-  },
-  {
-    id: 'reports',
-    title: 'Laporan',
-    description: 'Arus Kas & Neraca',
-    href: '/reports',
-    icon: PieChart,
-    gradient: 'from-emerald-500 to-teal-600 text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15',
-  },
-  {
-    id: 'budgets',
-    title: 'Anggaran',
-    description: 'Batas Pengeluaran',
-    href: '/budgets',
-    icon: Target,
-    gradient: 'from-amber-500 to-orange-600 text-amber-500 bg-amber-500/10 dark:bg-amber-500/15',
   },
   {
     id: 'investments',
@@ -58,7 +37,20 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
     description: 'Saham & Kripto',
     href: '/investments',
     icon: TrendingUp,
-    gradient: 'from-violet-500 to-purple-600 text-violet-500 bg-violet-500/10 dark:bg-violet-500/15',
+  },
+  {
+    id: 'reports',
+    title: 'Laporan',
+    description: 'Arus Kas & Neraca',
+    href: '/reports',
+    icon: PieChart,
+  },
+  {
+    id: 'budgets',
+    title: 'Anggaran',
+    description: 'Batas Pengeluaran',
+    href: '/budgets',
+    icon: Target,
   },
   {
     id: 'debts',
@@ -66,7 +58,6 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
     description: 'Cicilan Berjalan',
     href: '/debts',
     icon: HandCoins,
-    gradient: 'from-rose-500 to-pink-600 text-rose-500 bg-rose-500/10 dark:bg-rose-500/15',
   },
   {
     id: 'receivables',
@@ -74,7 +65,6 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
     description: 'Uang Dipinjamkan',
     href: '/receivables',
     icon: CircleDollarSign,
-    gradient: 'from-cyan-500 to-sky-600 text-cyan-500 bg-cyan-500/10 dark:bg-cyan-500/15',
   },
   {
     id: 'reminders',
@@ -82,7 +72,6 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
     description: 'Jatuh Tempo',
     href: '/reminders',
     icon: Bell,
-    gradient: 'from-yellow-500 to-amber-600 text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-500/15',
   },
   {
     id: 'settings',
@@ -90,7 +79,6 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
     description: 'Akun & Profil',
     href: '/settings',
     icon: Settings,
-    gradient: 'from-zinc-500 to-slate-600 text-zinc-500 dark:text-zinc-400 bg-zinc-500/10 dark:bg-zinc-500/15',
   },
 ];
 
@@ -100,48 +88,40 @@ export function QuickAccessMenu() {
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-bold tracking-tight text-foreground">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
             Akses Cepat
           </h3>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+          <Badge variant="outline" className="text-[10px] font-normal px-2 py-0">
             Fitur Utama
-          </span>
+          </Badge>
         </div>
         <Link
           href="/settings"
-          className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+          className="text-xs text-muted-foreground transition hover:text-foreground"
         >
           Semua Fitur
         </Link>
       </div>
 
-      {/* Grid of Quick Access Icons */}
-      <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+      {/* Grid of Quick Access Icons (Clean shadcn/ui zinc) */}
+      <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
         {QUICK_ACCESS_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
             <Link
               key={item.id}
               href={item.href}
-              className="group relative flex flex-col items-center justify-center rounded-2xl border border-border/70 bg-card/60 p-2.5 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-card hover:shadow-md active:scale-95"
+              className="group flex flex-col items-center justify-center rounded-xl border border-border/70 bg-card p-3 text-center transition hover:border-border hover:bg-muted/40"
             >
-              {/* Icon Container */}
-              <div
-                className={cn(
-                  'mb-1.5 flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105 shadow-xs',
-                  item.gradient
-                )}
-              >
-                <Icon className="h-5 w-5" />
+              <div className="mb-1.5 flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-muted/40 text-foreground transition group-hover:bg-accent group-hover:text-accent-foreground">
+                <Icon className="h-4 w-4" />
               </div>
 
-              {/* Title */}
-              <span className="text-[11px] font-bold text-foreground tracking-tight line-clamp-1">
+              <span className="text-[11px] font-medium text-foreground tracking-tight line-clamp-1">
                 {item.title}
               </span>
 
-              {/* Subtitle / Description */}
-              <span className="text-[9px] font-medium text-muted-foreground line-clamp-1 hidden sm:block">
+              <span className="text-[9px] text-muted-foreground line-clamp-1 hidden sm:block">
                 {item.description}
               </span>
             </Link>

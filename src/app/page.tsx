@@ -140,45 +140,19 @@ export default function DashboardPage() {
     if (isIncome) {
       return {
         icon: ArrowDownRight,
-        bg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
       };
     }
     if (isTransfer) {
       return {
         icon: ArrowLeftRight,
-        bg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-      };
-    }
-
-    const desc = (tx.description || '').toLowerCase();
-    if (desc.includes('makan') || desc.includes('kopi') || desc.includes('food') || desc.includes('resto') || desc.includes('noodle')) {
-      return {
-        icon: Utensils,
-        bg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-      };
-    }
-    if (desc.includes('belanja') || desc.includes('supermarket') || desc.includes('mall') || desc.includes('mart')) {
-      return {
-        icon: ShoppingBag,
-        bg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
-      };
-    }
-    if (desc.includes('bensin') || desc.includes('gojek') || desc.includes('grab') || desc.includes('parkir') || desc.includes('tol')) {
-      return {
-        icon: Car,
-        bg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-      };
-    }
-    if (desc.includes('listrik') || desc.includes('air') || desc.includes('wifi') || desc.includes('pulsa') || desc.includes('tagihan')) {
-      return {
-        icon: Receipt,
-        bg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+        bg: 'bg-muted text-foreground',
       };
     }
 
     return {
       icon: ArrowUpRight,
-      bg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+      bg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
     };
   };
 
@@ -189,23 +163,23 @@ export default function DashboardPage() {
          ======================================================== */}
       <div className="space-y-4 sm:hidden">
         {/* 1. Header Greeting & Profile Status */}
-        <div className="flex items-center justify-between rounded-2xl bg-card/60 border border-border/70 p-3 shadow-xs backdrop-blur-sm">
+        <div className="flex items-center justify-between rounded-xl bg-card border border-border p-3 shadow-xs">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 text-white font-black text-sm shadow-sm ring-2 ring-emerald-500/20 select-none">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground text-background font-bold text-xs select-none">
               {getUserInitials()}
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-muted-foreground">{getGreeting()}</p>
-              <h2 className="text-sm font-extrabold tracking-tight text-foreground truncate">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground truncate">
                 {getUserDisplayName()}
               </h2>
             </div>
           </div>
           <Badge
             variant="outline"
-            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shadow-xs shrink-0"
+            className="gap-1.5 px-2 py-0.5 text-[11px] font-medium border-border text-foreground shrink-0"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>Aktif</span>
           </Badge>
         </div>

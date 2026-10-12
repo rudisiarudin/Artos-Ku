@@ -71,8 +71,12 @@ interface FinanceContextType {
   setEditingAsset: (asset: InvestmentAsset | null) => void;
   addTrade: (trade: Omit<InvestmentTrade, 'id' | 'created_at'>) => Promise<void>;
   saveReceivable: (receivable: Receivable) => Promise<void>;
+  deleteReceivable: (id: string) => Promise<void>;
   recordReceivablePayment: (payment: Omit<ReceivablePayment, 'id' | 'created_at'>) => Promise<void>;
+  selectedReceivable: Receivable | null;
+  setSelectedReceivable: (receivable: Receivable | null) => void;
   saveDebt: (debt: Debt) => Promise<void>;
+  deleteDebt: (id: string) => Promise<void>;
   recordDebtPayment: (payment: Omit<DebtPayment, 'id' | 'created_at'>) => Promise<void>;
   saveBudget: (budget: Budget) => Promise<void>;
   toggleReminder: (id: string) => Promise<void>;
@@ -92,6 +96,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [assets, setAssets] = useState<InvestmentAsset[]>([]);
   const [trades, setTrades] = useState<InvestmentTrade[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -267,17 +272,59 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               cleanAssets = resolvedAssets;
               await storage.setCollection('artosku_assets', resolvedAssets);
             }
+            // Reconcile Assets
+            if (cleanAssets.length > 0 && (!resolvedAssets || resolvedAssets.length === 0)) {
+              for (const asset of cleanAssets) {
+                await addToSyncQueue({ action: 'insert', table: 'assets', data: asset });
+              }
+              await processSyncQueue(uid);
+            }
+
             if (dbTrades.data && dbTrades.data.length > 0) {
               cleanTrades = dbTrades.data;
               await storage.setCollection('artosku_trades', dbTrades.data);
             }
+
+            // Reconcile Receivables (Ensures HP local receivables push to Supabase so PC receives them)
             if (dbRecs.data && dbRecs.data.length > 0) {
-              cleanRecs = dbRecs.data;
-              await storage.setCollection('artosku_receivables', dbRecs.data);
+              const dbIds = new Set(dbRecs.data.map((r: any) => r.id));
+              const missingOnCloud = cleanRecs.filter((r) => !dbIds.has(r.id));
+              if (missingOnCloud.length > 0) {
+                for (const rec of missingOnCloud) {
+                  await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec });
+                }
+                await processSyncQueue(uid);
+                cleanRecs = [...dbRecs.data, ...missingOnCloud];
+              } else {
+                cleanRecs = dbRecs.data;
+              }
+              await storage.setCollection('artosku_receivables', cleanRecs);
+            } else if (cleanRecs.length > 0) {
+              for (const rec of cleanRecs) {
+                await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec });
+              }
+              await processSyncQueue(uid);
             }
+
+            // Reconcile Debts
             if (dbDebts.data && dbDebts.data.length > 0) {
-              cleanDebts = dbDebts.data;
-              await storage.setCollection('artosku_debts', dbDebts.data);
+              const dbIds = new Set(dbDebts.data.map((d: any) => d.id));
+              const missingOnCloud = cleanDebts.filter((d) => !dbIds.has(d.id));
+              if (missingOnCloud.length > 0) {
+                for (const debt of missingOnCloud) {
+                  await addToSyncQueue({ action: 'insert', table: 'debts', data: debt });
+                }
+                await processSyncQueue(uid);
+                cleanDebts = [...dbDebts.data, ...missingOnCloud];
+              } else {
+                cleanDebts = dbDebts.data;
+              }
+              await storage.setCollection('artosku_debts', cleanDebts);
+            } else if (cleanDebts.length > 0) {
+              for (const debt of cleanDebts) {
+                await addToSyncQueue({ action: 'insert', table: 'debts', data: debt });
+              }
+              await processSyncQueue(uid);
             }
             if (dbBudgets.data && dbBudgets.data.length > 0) {
               cleanBudgets = dbBudgets.data;
@@ -799,6 +846,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: receivable.user_id && receivable.user_id !== 'default-user' ? receivable.user_id : activeUid,
     };
     await storage.saveReceivable(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
+    await loadAll();
+  };
+
+  const deleteReceivable = async (id: string) => {
+    await storage.deleteReceivable(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
     await loadAll();
   };
 
@@ -813,6 +871,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       created_at: new Date().toISOString(),
     };
     await storage.recordReceivablePayment(newPayment);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(newPayment.user_id);
+    }
     await loadAll();
   };
 
@@ -824,6 +885,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: debt.user_id && debt.user_id !== 'default-user' ? debt.user_id : activeUid,
     };
     await storage.saveDebt(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
+    await loadAll();
+  };
+
+  const deleteDebt = async (id: string) => {
+    await storage.deleteDebt(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
     await loadAll();
   };
 
@@ -836,6 +908,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       created_at: new Date().toISOString(),
     };
     await storage.recordDebtPayment(newPayment);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(newPayment.user_id);
+    }
     await loadAll();
   };
 
@@ -871,6 +946,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         assets,
         trades,
         receivables,
+        selectedReceivable,
+        setSelectedReceivable,
         debts,
         budgets,
         reminders,
@@ -909,8 +986,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         setEditingAsset,
         addTrade,
         saveReceivable,
+        deleteReceivable,
         recordReceivablePayment,
         saveDebt,
+        deleteDebt,
         recordDebtPayment,
         saveBudget,
         toggleReminder,
