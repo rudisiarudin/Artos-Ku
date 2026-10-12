@@ -121,6 +121,38 @@ export function OvoLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProp
 }
 
 /**
+ * Official SeaBank Indonesia Logo
+ */
+export function SeaBankLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logos/seabank.png"
+      alt="SeaBank"
+      className={`object-contain transition-transform duration-200 ${isCard ? 'brightness-0 invert drop-shadow-sm' : ''} ${className}`}
+      loading="eager"
+    />
+  );
+}
+
+/**
+ * Official Allo Bank Indonesia Logo
+ */
+export function AlloBankLogo({ className = 'h-5 w-auto', variant = 'auto' }: LogoProps) {
+  const isCard = variant === 'card';
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logos/allobank.png"
+      alt="Allo Bank"
+      className={`object-contain transition-transform duration-200 ${isCard ? 'brightness-0 invert drop-shadow-sm' : ''} ${className}`}
+      loading="eager"
+    />
+  );
+}
+
+/**
  * Smart Institution Logo Resolver
  * Automatically resolves and renders the official borderless logo for Indonesian banks & wallets
  */
@@ -145,6 +177,14 @@ export function InstitutionLogo({
 
   if (lower.includes('bri') || lower.includes('rakyat indonesia') || lower.includes('britama')) {
     return <BriLogo className={className} variant={variant} />;
+  }
+
+  if (lower.includes('seabank') || lower.includes('sea bank') || lower.includes('sea group')) {
+    return <SeaBankLogo className={className} variant={variant} />;
+  }
+
+  if (lower.includes('allobank') || lower.includes('allo bank') || lower.includes('allo')) {
+    return <AlloBankLogo className={className} variant={variant} />;
   }
 
   if (lower.includes('gopay') || lower.includes('go-pay') || lower.includes('goto')) {

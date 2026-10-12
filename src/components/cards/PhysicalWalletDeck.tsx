@@ -55,6 +55,12 @@ export function PhysicalWalletDeck() {
     if (search.includes('bri')) {
       return 'from-[#003366] via-[#00529B] to-[#001f3f] border-[#00529B]/50 text-white';
     }
+    if (search.includes('seabank') || search.includes('sea bank')) {
+      return 'from-[#E04B16] via-[#F15A24] to-[#C93C08] border-[#F15A24]/60 text-white';
+    }
+    if (search.includes('allobank') || search.includes('allo bank')) {
+      return 'from-[#002244] via-[#004F9F] to-[#001830] border-[#004F9F]/60 text-white';
+    }
     if (search.includes('gopay')) {
       return 'from-[#005C8A] via-[#0081A7] to-[#003852] border-[#00AED6]/50 text-white';
     }

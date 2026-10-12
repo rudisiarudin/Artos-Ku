@@ -132,11 +132,25 @@ export function AccountFormModal() {
               <label className="block text-xs font-semibold text-muted-foreground">Nama Institusi</label>
               <input
                 type="text"
-                placeholder="e.g. Bank Central Asia"
+                list="institution-suggestions"
+                placeholder="e.g. SeaBank, Allo Bank, BCA"
                 value={institutionName}
                 onChange={(e) => setInstitutionName(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-medium"
               />
+              <datalist id="institution-suggestions">
+                <option value="SeaBank" />
+                <option value="Allo Bank" />
+                <option value="Bank Central Asia" />
+                <option value="Bank Mandiri" />
+                <option value="Bank Rakyat Indonesia" />
+                <option value="Bank Negara Indonesia" />
+                <option value="Bank Syariah Indonesia" />
+                <option value="Bank Jago" />
+                <option value="GoPay" />
+                <option value="DANA" />
+                <option value="OVO" />
+              </datalist>
             </div>
           </div>
 
