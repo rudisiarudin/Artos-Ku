@@ -189,6 +189,19 @@ class ArtosKuStorage {
     processSyncQueue().catch(() => {});
   }
 
+  async deleteAccount(id: string): Promise<void> {
+    const list = await this.getAccounts();
+    const updated = list.filter((a) => a.id !== id);
+    await this.setCollection(STORAGE_KEYS.ACCOUNTS, updated);
+
+    await addToSyncQueue({
+      action: 'delete',
+      table: 'accounts',
+      data: { id },
+    });
+    processSyncQueue().catch(() => {});
+  }
+
   // TRANSACTIONS & STRICT FINANCIAL ACCOUNTING
   async getTransactions(): Promise<Transaction[]> {
     return this.getCollection(STORAGE_KEYS.TRANSACTIONS, []);

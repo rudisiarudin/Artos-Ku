@@ -7,7 +7,7 @@ import { AccountType } from '../../lib/db/types';
 import { generateUUID } from '../../lib/utils';
 
 export function AccountFormModal() {
-  const { activeModal, setActiveModal, saveAccount, user, accounts } = useFinance();
+  const { activeModal, setActiveModal, saveAccount, user, accounts, editingAccount, setEditingAccount } = useFinance();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('bank');
@@ -18,9 +18,33 @@ export function AccountFormModal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  React.useEffect(() => {
+    if (editingAccount) {
+      setName(editingAccount.name || '');
+      setType(editingAccount.type || 'bank');
+      setInstitutionName(editingAccount.institution_name || '');
+      setAccountNumber(editingAccount.account_number || '');
+      const bal = Number(editingAccount.current_balance || 0);
+      setBalanceStr(bal ? new Intl.NumberFormat('id-ID').format(bal) : '0');
+      setColor(editingAccount.color || '#005E9E');
+    } else {
+      setName('');
+      setType('bank');
+      setInstitutionName('');
+      setAccountNumber('');
+      setBalanceStr('');
+      setColor('#005E9E');
+    }
+  }, [editingAccount, activeModal]);
+
   if (activeModal !== 'account') return null;
 
   const rawBalance = parseFloat(balanceStr.replace(/[^0-9]/g, '')) || 0;
+
+  const handleClose = () => {
+    setEditingAccount(null);
+    setActiveModal(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,25 +58,25 @@ export function AccountFormModal() {
 
     try {
       const activeUid = user?.id || (accounts[0]?.user_id && accounts[0].user_id !== 'default-user' ? accounts[0].user_id : null) || (typeof window !== 'undefined' ? localStorage.getItem('artosku_user_id') : null) || 'user_local';
-      const accId = generateUUID();
+      const accId = editingAccount ? editingAccount.id : generateUUID();
       await saveAccount({
         id: accId,
-        user_id: activeUid,
+        user_id: editingAccount?.user_id || activeUid,
         name: name.trim(),
         type,
         institution_name: institutionName.trim() || null,
         account_number: accountNumber.trim() || null,
-        currency: 'IDR',
-        opening_balance: rawBalance,
+        currency: editingAccount?.currency || 'IDR',
+        opening_balance: editingAccount ? editingAccount.opening_balance : rawBalance,
         current_balance: rawBalance,
         color,
         is_active: true,
         is_archived: false,
-        created_at: new Date().toISOString(),
+        created_at: editingAccount ? editingAccount.created_at : new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
 
-      setActiveModal(null);
+      handleClose();
     } catch (err: any) {
       setError(err?.message || 'Gagal menyimpan rekening');
     } finally {
@@ -63,7 +87,7 @@ export function AccountFormModal() {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
-      onClick={() => setActiveModal(null)}
+      onClick={handleClose}
     >
       <div
         className="w-full max-w-md max-h-[92dvh] sm:max-h-[85vh] rounded-t-3xl sm:rounded-2xl border-t sm:border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
@@ -80,13 +104,15 @@ export function AccountFormModal() {
               <Landmark className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">Tambah Rekening / Dompet</h2>
+              <h2 className="text-base font-bold text-foreground">
+                {editingAccount ? 'Ubah Rekening / Dompet' : 'Tambah Rekening / Dompet'}
+              </h2>
               <p className="text-[11px] text-muted-foreground">Bank, e-wallet, RDI, atau uang tunai</p>
             </div>
           </div>
           <button
-            onClick={() => setActiveModal(null)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:text-foreground"
+            onClick={handleClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:text-foreground cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -166,7 +192,9 @@ export function AccountFormModal() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground">Saldo Awal (IDR)</label>
+              <label className="block text-xs font-semibold text-muted-foreground">
+                {editingAccount ? 'Saldo Saat Ini (IDR)' : 'Saldo Awal (IDR)'}
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -185,9 +213,9 @@ export function AccountFormModal() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-98 disabled:opacity-50"
+            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-98 disabled:opacity-50 cursor-pointer"
           >
-            {isSubmitting ? 'Menyimpan...' : 'Simpan Rekening'}
+            {isSubmitting ? 'Menyimpan...' : editingAccount ? 'Simpan Perubahan' : 'Simpan Rekening'}
           </button>
         </form>
       </div>

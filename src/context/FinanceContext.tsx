@@ -61,6 +61,9 @@ interface FinanceContextType {
   addTransaction: (tx: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   saveAccount: (account: Account) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+  editingAccount: Account | null;
+  setEditingAccount: (account: Account | null) => void;
   saveCategory: (category: Category) => Promise<void>;
   saveAsset: (asset: InvestmentAsset) => Promise<void>;
   addTrade: (trade: Omit<InvestmentTrade, 'id' | 'created_at'>) => Promise<void>;
@@ -93,6 +96,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(false);
 
   // Auth and Onboarding State
@@ -272,6 +276,37 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           needPersistAccounts = true;
         }
       }
+
+      // Self-heal: Deduplicate accounts sharing identical account_number
+      // (e.g. from onboarding preset + custom account creation like BCA Tahapan Utama vs BCA Xpresi)
+      const seenAccountNumbers = new Map<string, Account>();
+      const deduplicatedAccs: Account[] = [];
+      for (const acc of resolvedAccs) {
+        const accNum = acc.account_number?.trim();
+        if (accNum && accNum.length >= 4) {
+          if (seenAccountNumbers.has(accNum)) {
+            const existing = seenAccountNumbers.get(accNum)!;
+            needPersistAccounts = true;
+            // Prefer user's customized name (e.g. 'BCA Xpresi') over generic default onboarding preset name ('BCA Tahapan Utama')
+            if (existing.name === 'BCA Tahapan Utama' && acc.name !== 'BCA Tahapan Utama') {
+              const idx = deduplicatedAccs.findIndex((a) => a.id === existing.id);
+              if (idx !== -1) {
+                storage.deleteAccount(existing.id).catch(() => {});
+                deduplicatedAccs[idx] = acc;
+                seenAccountNumbers.set(accNum, acc);
+              }
+            } else {
+              storage.deleteAccount(acc.id).catch(() => {});
+            }
+            continue;
+          } else {
+            seenAccountNumbers.set(accNum, acc);
+          }
+        }
+        deduplicatedAccs.push(acc);
+      }
+      resolvedAccs = deduplicatedAccs;
+
       if (needPersistAccounts) {
         await storage.setCollection('artosku_accounts', resolvedAccs);
       }
@@ -674,6 +709,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await loadAll();
   };
 
+  const deleteAccount = async (id: string) => {
+    await storage.deleteAccount(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
+    await loadAll();
+  };
+
   const saveCategory = async (category: Category) => {
     const activeUid = getActiveUserId();
     const sanitized: Category = {
@@ -816,6 +859,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         addTransaction,
         deleteTransaction,
         saveAccount,
+        deleteAccount,
+        editingAccount,
+        setEditingAccount,
         saveCategory,
         saveAsset,
         addTrade,
