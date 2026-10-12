@@ -124,7 +124,10 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
         }
 
         if (action === 'delete') {
-          await supabase.from(table).delete().eq('id', record.id);
+          const { error } = await supabase.from(table).delete().eq('id', record.id);
+          if (error && table === 'assets') {
+            await supabase.from('investment_assets').delete().eq('id', record.id);
+          }
           await removeSyncQueueItem(item.id);
           continue;
         }
@@ -147,6 +150,32 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           };
           const { error } = await supabase.from('accounts').upsert(accountPayload);
           if (error) console.warn('[SyncEngine] accounts upsert notice:', error.message);
+          await removeSyncQueueItem(item.id);
+        } else if (table === 'assets') {
+          const assetPayload: any = {
+            id: record.id,
+            user_id: activeUserId,
+            ticker: record.ticker,
+            name: record.name,
+            asset_type: record.asset_type || 'stock',
+            platform: record.platform || null,
+            lots: record.lots !== undefined && record.lots !== null ? Number(record.lots) : null,
+            shares_or_units: Number(record.shares_or_units || 0),
+            average_buy_price: Number(record.average_buy_price || 0),
+            current_price: Number(record.current_price || 0),
+            currency: record.currency || 'IDR',
+            exchange: record.exchange || null,
+            notes: record.notes || null,
+            last_price_updated_at: record.last_price_updated_at || new Date().toISOString(),
+          };
+
+          let { error } = await supabase.from('assets').upsert(assetPayload);
+          if (error) {
+            // Fallback to investment_assets if assets table name differs in Supabase
+            const retryRes = await supabase.from('investment_assets').upsert(assetPayload);
+            error = retryRes.error;
+          }
+          if (error) console.warn('[SyncEngine] assets upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'transactions') {
           const txType = record.type || record.kind || 'expense';

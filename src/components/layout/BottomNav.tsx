@@ -139,29 +139,17 @@ export function BottomNav() {
               <button
                 onClick={() => {
                   setShowFabMenu(false);
-                  setActiveModal('stock_trade');
+                  setActiveModal('portfolio_asset');
                 }}
-                className="flex flex-col items-start rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
+                className="col-span-2 flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 mb-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
                   <TrendingUp className="h-4 w-4" />
                 </div>
-                <span className="text-xs font-bold text-foreground">Trading Saham</span>
-                <span className="text-[10px] text-muted-foreground">Beli/jual saham IDX (Lot)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowFabMenu(false);
-                  setActiveModal('crypto_trade');
-                }}
-                className="flex flex-col items-start rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-2">
-                  <TrendingUp className="h-4 w-4" />
+                <div>
+                  <span className="text-xs font-bold text-foreground">Catat Portofolio Investasi</span>
+                  <p className="text-[10px] text-muted-foreground">Saham & aset dari Ajaib, Stockbit, Bibit, dll.</p>
                 </div>
-                <span className="text-xs font-bold text-foreground">Aset Crypto</span>
-                <span className="text-[10px] text-muted-foreground">Beli/jual BTC, ETH, SOL</span>
               </button>
 
               <button

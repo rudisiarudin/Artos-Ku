@@ -32,7 +32,7 @@ export function QuickActionBar() {
       label: 'Investasi',
       sublabel: 'Saham & Kripto',
       icon: TrendingUp,
-      onClick: () => setActiveModal('stock_trade'),
+      onClick: () => setActiveModal('portfolio_asset'),
       colorStyles:
         'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25 group-hover:border-violet-500 group-hover:bg-violet-500 group-hover:text-white shadow-violet-500/10',
     },

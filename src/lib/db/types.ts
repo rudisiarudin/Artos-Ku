@@ -86,7 +86,7 @@ export interface RecurringTransaction {
   created_at: string;
 }
 
-export type AssetType = 'stock' | 'crypto';
+export type AssetType = 'stock' | 'crypto' | 'mutual_fund' | 'gold' | 'other';
 
 export interface InvestmentAsset {
   id: string;
@@ -94,11 +94,17 @@ export interface InvestmentAsset {
   asset_type: AssetType;
   ticker: string;
   name: string;
+  platform?: string | null; // e.g. 'Ajaib', 'Stockbit', 'Bibit', 'Pluang', 'Indodax'
+  lots?: number | null; // For Indonesian stocks: 1 lot = 100 shares
+  shares_or_units?: number; // Total shares/units/coins
+  average_buy_price?: number; // Harga beli rata-rata (Avg Price)
   exchange?: string | null;
   currency: string;
   current_price: number;
+  notes?: string | null;
   last_price_updated_at: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export type TradeType = 'buy' | 'sell';

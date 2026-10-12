@@ -366,10 +366,34 @@ class ArtosKuStorage {
   }
 
   async saveAsset(asset: InvestmentAsset): Promise<void> {
+    const sanitized: InvestmentAsset = {
+      ...asset,
+      id: isValidUUID(asset.id) ? asset.id : generateUUID(),
+    };
     const list = await this.getAssets();
-    const idx = list.findIndex((a) => a.id === asset.id);
-    const updated = idx >= 0 ? list.map((a) => (a.id === asset.id ? asset : a)) : [asset, ...list];
+    const idx = list.findIndex((a) => a.id === sanitized.id);
+    const updated = idx >= 0 ? list.map((a) => (a.id === sanitized.id ? sanitized : a)) : [sanitized, ...list];
     await this.setCollection(STORAGE_KEYS.ASSETS, updated);
+
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'assets',
+      data: sanitized,
+    });
+    processSyncQueue().catch(() => {});
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    const list = await this.getAssets();
+    const updated = list.filter((a) => a.id !== id);
+    await this.setCollection(STORAGE_KEYS.ASSETS, updated);
+
+    await addToSyncQueue({
+      action: 'delete',
+      table: 'assets',
+      data: { id },
+    });
+    processSyncQueue().catch(() => {});
   }
 
   async getTrades(): Promise<InvestmentTrade[]> {

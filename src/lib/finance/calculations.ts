@@ -2,6 +2,7 @@ import {
   Account,
   InvestmentAsset,
   InvestmentTrade,
+  AssetType,
   Receivable,
   Debt,
   DebtInterestType
@@ -68,7 +69,8 @@ export interface PortfolioPosition {
   assetId: string;
   ticker: string;
   name: string;
-  assetType: 'stock' | 'crypto';
+  platform?: string | null;
+  assetType: AssetType;
   totalSharesOrUnits: number;
   totalLots?: number;
   totalCostBasis: number;
@@ -78,18 +80,55 @@ export interface PortfolioPosition {
   unrealizedPL: number;
   unrealizedPLPercentage: number;
   realizedPL: number;
+  notes?: string | null;
   totalDividends?: number;
 }
 
 /**
  * Calculate Weighted Average Cost (WAC), Realized P/L, and Unrealized P/L
- * Chronologically processes buy and sell trades.
+ * Directly calculates from asset holding data, or chronologically processes buy and sell trades.
  */
 export function calculateAssetPosition(
   asset: InvestmentAsset,
-  trades: InvestmentTrade[]
+  trades: InvestmentTrade[] = []
 ): PortfolioPosition {
-  // Sort trades chronologically
+  // If asset directly records portfolio holdings (Catat Portofolio Tanpa Transaksi Beli/Jual)
+  const directUnits = Number(
+    asset.shares_or_units ?? (asset.lots ? lotsToShares(Number(asset.lots)) : 0)
+  );
+  const directAvgPrice = Number(asset.average_buy_price || 0);
+
+  if (directUnits > 0 || directAvgPrice > 0 || trades.length === 0) {
+    const totalCostBasis = directUnits * directAvgPrice;
+    const currentPrice = Number(asset.current_price || directAvgPrice);
+    const currentMarketValue = directUnits * currentPrice;
+    const unrealizedPL = currentMarketValue - totalCostBasis;
+    const unrealizedPLPercentage =
+      totalCostBasis > 0 ? (unrealizedPL / totalCostBasis) * 100 : 0;
+
+    return {
+      assetId: asset.id,
+      ticker: asset.ticker,
+      name: asset.name,
+      platform: asset.platform || null,
+      assetType: asset.asset_type,
+      totalSharesOrUnits: directUnits,
+      totalLots:
+        asset.asset_type === 'stock'
+          ? (asset.lots ?? sharesToLots(directUnits))
+          : undefined,
+      totalCostBasis,
+      averageCost: directAvgPrice,
+      currentPrice,
+      currentMarketValue,
+      unrealizedPL,
+      unrealizedPLPercentage,
+      realizedPL: 0,
+      notes: asset.notes || null,
+    };
+  }
+
+  // Fallback: Sort trades chronologically
   const sortedTrades = [...trades].sort(
     (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
   );
@@ -135,6 +174,7 @@ export function calculateAssetPosition(
     assetId: asset.id,
     ticker: asset.ticker,
     name: asset.name,
+    platform: asset.platform || null,
     assetType: asset.asset_type,
     totalSharesOrUnits: remainingUnits,
     totalLots: asset.asset_type === 'stock' ? sharesToLots(remainingUnits) : undefined,
@@ -145,6 +185,7 @@ export function calculateAssetPosition(
     unrealizedPL,
     unrealizedPLPercentage,
     realizedPL,
+    notes: asset.notes || null,
   };
 }
 

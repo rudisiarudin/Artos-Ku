@@ -11,6 +11,7 @@ import { CryptoTradeModal } from '../forms/CryptoTradeModal';
 import { ReceivableFormModal } from '../forms/ReceivableFormModal';
 import { DebtFormModal } from '../forms/DebtFormModal';
 import { AccountFormModal } from '../forms/AccountFormModal';
+import { PortfolioModal } from '../forms/PortfolioModal';
 import { ServiceWorkerRegister } from '../shared/ServiceWorkerRegister';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -53,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <ReceivableFormModal />
       <DebtFormModal />
       <AccountFormModal />
+      <PortfolioModal />
       <ServiceWorkerRegister />
     </div>
   );

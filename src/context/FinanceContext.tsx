@@ -66,6 +66,9 @@ interface FinanceContextType {
   setEditingAccount: (account: Account | null) => void;
   saveCategory: (category: Category) => Promise<void>;
   saveAsset: (asset: InvestmentAsset) => Promise<void>;
+  deleteAsset: (id: string) => Promise<void>;
+  editingAsset: InvestmentAsset | null;
+  setEditingAsset: (asset: InvestmentAsset | null) => void;
   addTrade: (trade: Omit<InvestmentTrade, 'id' | 'created_at'>) => Promise<void>;
   saveReceivable: (receivable: Receivable) => Promise<void>;
   recordReceivablePayment: (payment: Omit<ReceivablePayment, 'id' | 'created_at'>) => Promise<void>;
@@ -97,6 +100,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [editingAsset, setEditingAsset] = useState<InvestmentAsset | null>(null);
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(false);
 
   // Auth and Onboarding State
@@ -252,9 +256,16 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               resolvedTxs = normalizedTxs;
               await storage.setCollection('artosku_transactions', normalizedTxs);
             }
-            if (dbAssets.data && dbAssets.data.length > 0) {
-              cleanAssets = dbAssets.data;
-              await storage.setCollection('artosku_assets', dbAssets.data);
+            let resolvedAssets = dbAssets.data;
+            if ((!resolvedAssets || resolvedAssets.length === 0) && dbAssets.error) {
+              const alt = await supabase.from('investment_assets').select('*').eq('user_id', uid);
+              if (alt.data && alt.data.length > 0) {
+                resolvedAssets = alt.data;
+              }
+            }
+            if (resolvedAssets && resolvedAssets.length > 0) {
+              cleanAssets = resolvedAssets;
+              await storage.setCollection('artosku_assets', resolvedAssets);
             }
             if (dbTrades.data && dbTrades.data.length > 0) {
               cleanTrades = dbTrades.data;
@@ -754,6 +765,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: asset.user_id && asset.user_id !== 'default-user' ? asset.user_id : activeUid,
     };
     await storage.saveAsset(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
+    await loadAll();
+  };
+
+  const deleteAsset = async (id: string) => {
+    await storage.deleteAsset(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
     await loadAll();
   };
 
@@ -882,6 +904,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         setEditingAccount,
         saveCategory,
         saveAsset,
+        deleteAsset,
+        editingAsset,
+        setEditingAsset,
         addTrade,
         saveReceivable,
         recordReceivablePayment,

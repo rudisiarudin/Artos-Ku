@@ -127,16 +127,41 @@ CREATE TABLE IF NOT EXISTS public.recurring_transactions (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 7. INVESTMENT ASSETS (Stocks & Crypto)
+-- 7. INVESTMENT ASSETS & PORTFOLIO (Stocks, Crypto, Mutual Funds, Gold)
 CREATE TABLE IF NOT EXISTS public.investment_assets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'crypto')),
+    asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'crypto', 'mutual_fund', 'gold', 'other')),
     ticker TEXT NOT NULL, -- e.g. BBCA, BBRI, BTC, ETH
     name TEXT NOT NULL,
+    platform TEXT, -- e.g. Stockbit, Ajaib, Bibit, Pluang, Indodax
+    lots NUMERIC(15, 4), -- For IDX stocks: 1 lot = 100 shares
+    shares_or_units NUMERIC(18, 8) DEFAULT 0.00,
+    average_buy_price NUMERIC(18, 6) DEFAULT 0.00,
     exchange TEXT, -- IDX, Binance, Indodax, etc.
     currency TEXT DEFAULT 'IDR' NOT NULL,
     current_price NUMERIC(18, 6) DEFAULT 0.00 NOT NULL,
+    notes TEXT,
+    last_price_updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, ticker, asset_type)
+);
+
+-- Backward-compatibility / alias table for assets
+CREATE TABLE IF NOT EXISTS public.assets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'crypto', 'mutual_fund', 'gold', 'other')),
+    ticker TEXT NOT NULL,
+    name TEXT NOT NULL,
+    platform TEXT,
+    lots NUMERIC(15, 4),
+    shares_or_units NUMERIC(18, 8) DEFAULT 0.00,
+    average_buy_price NUMERIC(18, 6) DEFAULT 0.00,
+    exchange TEXT,
+    currency TEXT DEFAULT 'IDR' NOT NULL,
+    current_price NUMERIC(18, 6) DEFAULT 0.00 NOT NULL,
+    notes TEXT,
     last_price_updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     UNIQUE(user_id, ticker, asset_type)
