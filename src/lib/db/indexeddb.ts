@@ -107,3 +107,14 @@ export async function clearSyncQueue(): Promise<void> {
     console.warn('clearSyncQueue failed', err);
   }
 }
+
+export async function clearAllLocalIDB(): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.clear('keyval');
+    await db.clear('sync_queue');
+    await db.clear('drafts');
+  } catch (err) {
+    console.warn('clearAllLocalIDB failed', err);
+  }
+}

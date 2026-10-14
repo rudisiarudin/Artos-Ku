@@ -22,7 +22,7 @@ import {
   DEFAULT_TRANSACTIONS,
   DEFAULT_REMINDERS,
 } from './seedData';
-import { addToSyncQueue, idbGet, idbSet, clearSyncQueue } from './indexeddb';
+import { addToSyncQueue, idbGet, idbSet, clearSyncQueue, clearAllLocalIDB } from './indexeddb';
 import { generateUUID, isValidUUID } from '../utils';
 import { normalizeCategoryId, normalizeReferenceId, processSyncQueue } from './sync';
 
@@ -192,6 +192,24 @@ class ArtosKuStorage {
     const list = await this.getAccounts();
     const updated = list.filter((a) => a.id !== id);
     await this.setCollection(STORAGE_KEYS.ACCOUNTS, updated);
+
+    // Nullify account references in local transactions
+    const txs = await this.getTransactions();
+    let txsModified = false;
+    const updatedTxs = txs.map((t) => {
+      if (t.source_account_id === id || t.destination_account_id === id) {
+        txsModified = true;
+        return {
+          ...t,
+          source_account_id: t.source_account_id === id ? null : t.source_account_id,
+          destination_account_id: t.destination_account_id === id ? null : t.destination_account_id,
+        };
+      }
+      return t;
+    });
+    if (txsModified) {
+      await this.setCollection(STORAGE_KEYS.TRANSACTIONS, updatedTxs);
+    }
 
     await addToSyncQueue({
       action: 'delete',
@@ -386,6 +404,11 @@ class ArtosKuStorage {
     const list = await this.getAssets();
     const updated = list.filter((a) => a.id !== id);
     await this.setCollection(STORAGE_KEYS.ASSETS, updated);
+
+    // Cascade clean trades of deleted asset
+    const trades = await this.getTrades();
+    const updatedTrades = trades.filter((t) => t.asset_id !== id);
+    await this.setCollection(STORAGE_KEYS.TRADES, updatedTrades);
 
     await addToSyncQueue({
       action: 'delete',
@@ -680,9 +703,25 @@ class ArtosKuStorage {
     );
   }
 
+  async clearLocalCache(): Promise<void> {
+    if (!this.isClient()) return;
+    await clearAllLocalIDB();
+    // Clear only ArtosKu cache items from localStorage, strictly preserving auth tokens
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('artosku_') || key.startsWith('draft_'))) {
+        if (key !== 'artosku_telegram_config') {
+          keysToRemove.push(key);
+        }
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  }
+
   async resetToSeed(): Promise<void> {
     if (!this.isClient()) return;
-    localStorage.clear();
+    await this.clearLocalCache();
     await this.setCollection(STORAGE_KEYS.ACCOUNTS, DEFAULT_ACCOUNTS);
     await this.setCollection(STORAGE_KEYS.CATEGORIES, DEFAULT_CATEGORIES);
     await this.setCollection(STORAGE_KEYS.TRANSACTIONS, DEFAULT_TRANSACTIONS);

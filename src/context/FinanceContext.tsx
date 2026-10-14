@@ -85,6 +85,7 @@ interface FinanceContextType {
   deleteBudget: (id: string) => Promise<void>;
   toggleReminder: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  clearCache: () => Promise<void>;
   resetDemoData: () => Promise<void>;
 }
 
@@ -1054,6 +1055,16 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await loadAll();
   };
 
+  const clearCache = async () => {
+    setIsLoading(true);
+    try {
+      await storage.clearLocalCache();
+      await loadAll();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetDemoData = async () => {
     await storage.resetToSeed();
     await loadAll();
@@ -1119,6 +1130,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         deleteBudget,
         toggleReminder,
         refreshData: loadAll,
+        clearCache,
         resetDemoData,
       }}
     >

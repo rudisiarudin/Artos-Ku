@@ -14,6 +14,7 @@ import {
   EyeOff,
   HelpCircle,
   RefreshCw,
+  Trash2,
   ExternalLink,
   User,
   LogOut,
@@ -39,13 +40,15 @@ import {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { categories, saveCategory, resetDemoData, refreshData, user, logout, resetOnboarding } = useFinance();
+  const { categories, saveCategory, resetDemoData, refreshData, clearCache, user, logout, resetOnboarding } = useFinance();
 
   const [supabaseConnected] = useState(isSupabaseConfigured());
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState<CategoryType>('expense');
   const [newCatColor, setNewCatColor] = useState('#10B981');
   const [statusMessage, setStatusMessage] = useState('');
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [cacheClearedSuccess, setCacheClearedSuccess] = useState(false);
 
   // Telegram Bot State
   const [telegramConfig, setTelegramConfig] = useState<TelegramConfig>({
@@ -88,6 +91,26 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
     setStatusMessage('Backup data berhasil diunduh!');
     setTimeout(() => setStatusMessage(''), 3000);
+  };
+
+  // Handle Clear Local Cache
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    setCacheClearedSuccess(false);
+    try {
+      await clearCache();
+      setCacheClearedSuccess(true);
+      setStatusMessage('Cache lokal berhasil dibersihkan! Data telah disinkronkan kembali dari cloud.');
+      setTimeout(() => {
+        setCacheClearedSuccess(false);
+        setStatusMessage('');
+      }, 4000);
+    } catch {
+      setStatusMessage('Gagal membersihkan cache lokal.');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } finally {
+      setIsClearingCache(false);
+    }
   };
 
   // Handle Import JSON
@@ -742,6 +765,52 @@ export default function SettingsPage() {
             </span>
           ))}
         </div>
+      </Card>
+
+      {/* Cache & Local Storage Management (Hapus Cache) */}
+      <Card className="p-5 shadow-sm space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <RefreshCw className={cn('h-5 w-5', isClearingCache && 'animate-spin')} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                Pembersihan Cache & Sinkronisasi Ulang (Clear Cache)
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Bersihkan riwayat cache & data lokal browser agar tidak ada data lama yang tersangkut
+              </p>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isClearingCache}
+            onClick={handleClearCache}
+            className="gap-2 text-xs font-semibold border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <span>{isClearingCache ? 'Membersihkan Cache...' : 'Hapus Cache & Muat Ulang'}</span>
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 text-xs space-y-1.5 text-muted-foreground">
+          <p>
+            💡 <strong className="text-foreground font-semibold">Aman Digunakan:</strong> Menghapus cache lokal (IndexedDB & LocalStorage) <em>tidak akan mengeluarkan (logout) Anda</em> dari akun.
+          </p>
+          <p>
+            Setelah cache dibersihkan, ArtosKu akan langsung mengunduh data paling segar dan terbaru dari Cloud Supabase. Gunakan fitur ini jika ada angka saldo atau transaksi lama yang terasa tersangkut di perangkat ini.
+          </p>
+        </div>
+
+        {cacheClearedSuccess && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400 animate-in fade-in">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>Cache lokal berhasil dibersihkan! Seluruh data disinkronkan kembali dari cloud.</span>
+          </div>
+        )}
       </Card>
 
       {/* Data Backup & Reset */}
