@@ -62,9 +62,8 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<'month' | 'year' | 'all'>('month');
   const [showChartsOnMobile, setShowChartsOnMobile] = useState(false);
 
-  // Total Assets = Cash + Investments + Receivables
-  const totalAssets =
-    netWorthData.totalCash + netWorthData.investmentValue + netWorthData.totalReceivables;
+  // Total Assets (Kas & Rekening + Investasi Pasar)
+  const totalAssets = netWorthData.totalCash + netWorthData.investmentValue;
 
   // Category expense breakdown
   const categoryExpenseData = categories
@@ -455,7 +454,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="mt-2 text-xs text-zinc-400">
-                Kas & Tabungan + Investasi Pasar + Piutang Tagih − Total Kewajiban Hutang
+                Kas & Rekening + Investasi Pasar − Total Kewajiban Hutang (Piutang dicatat terpisah)
               </p>
             </div>
 

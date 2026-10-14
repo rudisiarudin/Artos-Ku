@@ -158,7 +158,7 @@ describe('Financial Math & Accounting Engine', () => {
   });
 
   describe('Net Worth Calculation & Anti-Double-Counting', () => {
-    it('accurately computes Net Worth = Cash + Investments + Receivables - Debts', () => {
+    it('accurately computes Net Worth = Cash + Investments - Debts (Receivables tracked separately)', () => {
       const accounts: Account[] = [
         {
           id: 'acc-1',
@@ -239,14 +239,14 @@ describe('Financial Math & Accounting Engine', () => {
 
       // Total Cash = 10,000,000 + 2,000,000 = 12,000,000
       // Investments = 25,000,000
-      // Collectible Receivables = 3,000,000
+      // Collectible Receivables = 3,000,000 (tracked separately, excluded until repaid)
       // Debts = 15,000,000
-      // Net Worth = 12M + 25M + 3M - 15M = 25,000,000
+      // Net Worth = 12M + 25M - 15M = 22,000,000
       expect(res.totalCash).toBe(12000000);
       expect(res.investmentValue).toBe(25000000);
       expect(res.totalReceivables).toBe(3000000);
       expect(res.totalDebts).toBe(15000000);
-      expect(res.netWorth).toBe(25000000);
+      expect(res.netWorth).toBe(22000000);
     });
   });
 

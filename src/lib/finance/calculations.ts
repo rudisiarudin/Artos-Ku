@@ -23,7 +23,8 @@ export function sharesToLots(shares: number): number {
 
 /**
  * Calculate Net Worth accurately:
- * Net Worth = Total Cash/Bank Balances + Investment Market Value + Collectible Receivables - Outstanding Debt Principal
+ * Net Worth = Total Cash/Bank Balances + Investment Market Value - Outstanding Debt Principal
+ * Note: Receivables (Piutang) are tracked separately and not counted into active net worth until repaid.
  */
 export function calculateNetWorth(params: {
   accounts: Account[];
@@ -54,7 +55,8 @@ export function calculateNetWorth(params: {
     .filter((d) => d.status !== 'paid_off')
     .reduce((sum, d) => sum + Number(d.current_principal || 0), 0);
 
-  const netWorth = totalCash + investmentMarketValue + totalReceivables - totalDebts;
+  // Net Worth excludes receivables because debtor has not repaid yet
+  const netWorth = totalCash + investmentMarketValue - totalDebts;
 
   return {
     totalCash,

@@ -174,7 +174,7 @@ export default function ReportsPage() {
                 <td className="py-2.5 text-right font-mono font-medium text-foreground">
                   {formatIDR(netWorthData.totalReceivables)}
                 </td>
-                <td className="py-2.5 text-right text-muted-foreground">Tagihan</td>
+                <td className="py-2.5 text-right text-muted-foreground">Belum Cair (Terpisah)</td>
               </tr>
               <tr className="bg-destructive/5">
                 <td className="py-2.5 font-medium text-destructive">
