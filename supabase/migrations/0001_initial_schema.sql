@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.accounts (
 -- 3. CATEGORIES
 CREATE TABLE IF NOT EXISTS public.categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
     icon TEXT DEFAULT 'tag',
@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS public.categories (
     is_system BOOLEAN DEFAULT false NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+-- Ensure user_id can be null for shared system categories
+ALTER TABLE public.categories ALTER COLUMN user_id DROP NOT NULL;
 
 -- 4. TRANSACTIONS
 CREATE TABLE IF NOT EXISTS public.transactions (
@@ -352,7 +355,7 @@ BEGIN
     FOR tbl IN 
         SELECT tablename FROM pg_tables WHERE schemaname = 'public' 
         AND tablename IN (
-            'profiles', 'accounts', 'categories', 'transactions', 'budgets',
+            'profiles', 'accounts', 'transactions', 'budgets',
             'recurring_transactions', 'investment_assets', 'assets', 'investment_trades', 'trades',
             'dividends', 'receivables', 'receivable_payments', 'debts',
             'debt_payments', 'reminders', 'audit_logs'
@@ -367,6 +370,25 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- Dedicated Policies for Categories (System categories readable by all users, user-created managed by owner)
+DROP POLICY IF EXISTS categories_user_policy ON public.categories;
+DROP POLICY IF EXISTS categories_select_policy ON public.categories;
+DROP POLICY IF EXISTS categories_insert_policy ON public.categories;
+DROP POLICY IF EXISTS categories_update_policy ON public.categories;
+DROP POLICY IF EXISTS categories_delete_policy ON public.categories;
+
+CREATE POLICY categories_select_policy ON public.categories
+    FOR SELECT USING (auth.uid() = user_id OR is_system = true OR user_id IS NULL);
+
+CREATE POLICY categories_insert_policy ON public.categories
+    FOR INSERT WITH CHECK (auth.uid() = user_id OR is_system = true);
+
+CREATE POLICY categories_update_policy ON public.categories
+    FOR UPDATE USING (auth.uid() = user_id OR is_system = true);
+
+CREATE POLICY categories_delete_policy ON public.categories
+    FOR DELETE USING (auth.uid() = user_id AND is_system = false);
 
 -- Indexes for high-speed queries and reporting (Safe and Quoted)
 CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON public.transactions(user_id, "date" DESC);
@@ -410,7 +432,7 @@ BEGIN
             ('c0000000-0000-4000-8000-000000000006', new.id, 'Belanja & Belanjaan', 'expense', 'ShoppingBag', '#EC4899', true),
             ('c0000000-0000-4000-8000-000000000007', new.id, 'Hiburan & Liburan', 'expense', 'Film', '#A855F7', true),
             ('c0000000-0000-4000-8000-000000000008', new.id, 'Cicilan & Hutang', 'expense', 'CreditCard', '#DC2626', true)
-        ON CONFLICT (id) DO NOTHING;
+        ON CONFLICT (id) DO UPDATE SET is_system = true;
     EXCEPTION WHEN OTHERS THEN
         NULL;
     END;

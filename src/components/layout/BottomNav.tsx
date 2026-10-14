@@ -16,6 +16,7 @@ import {
   CreditCard,
   Landmark,
   X,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFinance } from '../../context/FinanceContext';
@@ -40,9 +41,9 @@ export function BottomNav() {
 
   const navItems = [
     { id: 'home', label: 'Home', href: '/', icon: Home },
-    { id: 'wallet', label: 'Wallet', href: '/accounts', icon: Wallet },
+    { id: 'transactions', label: 'Transaksi', href: '/transactions', icon: ArrowLeftRight },
+    { id: 'wallet', label: 'Dompet', href: '/accounts', icon: Wallet },
     { id: 'investasi', label: 'Investasi', href: '/investments', icon: TrendingUp },
-    { id: 'settings', label: 'Settings', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -54,7 +55,7 @@ export function BottomNav() {
           onClick={() => setShowMoreMenu(false)}
         >
           <div
-            className="w-full max-w-md rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted-foreground/20" />
@@ -102,7 +103,7 @@ export function BottomNav() {
           onClick={() => setShowFabMenu(false)}
         >
           <div
-            className="w-full max-w-md rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted-foreground/20" />
@@ -140,15 +141,13 @@ export function BottomNav() {
                   setShowFabMenu(false);
                   setActiveModal('portfolio_asset');
                 }}
-                className="col-span-2 flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
+                className="flex flex-col items-start rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 mb-2">
                   <TrendingUp className="h-4 w-4" />
                 </div>
-                <div>
-                  <span className="text-xs font-bold text-foreground">Catat Portofolio Investasi</span>
-                  <p className="text-[10px] text-muted-foreground">Saham & aset dari Ajaib, Stockbit, Bibit, dll.</p>
-                </div>
+                <span className="text-xs font-bold text-foreground">Portofolio Saham</span>
+                <span className="text-[10px] text-muted-foreground">Ajaib, Stockbit, Bibit, dll.</span>
               </button>
 
               <button
@@ -170,23 +169,21 @@ export function BottomNav() {
                   setShowFabMenu(false);
                   setActiveModal('debt');
                 }}
-                className="col-span-2 flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
+                className="flex flex-col items-start rounded-2xl border border-border bg-muted/30 p-3.5 text-left transition hover:bg-muted active:scale-98"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-2">
                   <CreditCard className="h-4 w-4" />
                 </div>
-                <div>
-                  <span className="text-xs font-bold text-foreground">Cicilan & Hutang Baru</span>
-                  <p className="text-[10px] text-muted-foreground">KPR, kendaraan, smartphone, atau kartu kredit</p>
-                </div>
+                <span className="text-xs font-bold text-foreground">Cicilan & Hutang</span>
+                <span className="text-[10px] text-muted-foreground">KPR, kendaraan, cicilan</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Pill Dock Navigation (Exact Design 01: Home, Wallet, Investasi, Settings + Catat) */}
-      <div className="fixed bottom-5 left-0 right-0 z-40 flex items-center justify-center px-3 pointer-events-none md:hidden">
+      {/* Floating Pill Dock Navigation */}
+      <div className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex items-center justify-center px-3 pointer-events-none md:hidden">
         <div className="flex items-center gap-2 pointer-events-auto max-w-[420px] w-full">
           
           {/* Main Capsule Dock: Clean Matte Zinc rounded-full pill */}
@@ -206,7 +203,7 @@ export function BottomNav() {
                     className={cn(
                       'flex items-center justify-center transition-all duration-200 rounded-full select-none cursor-pointer',
                       isActive
-                        ? 'bg-white text-zinc-950 px-3.5 py-1.5 gap-1.5 shadow-sm font-bold'
+                        ? 'bg-white text-zinc-950 px-3 py-1.5 gap-1 shadow-sm font-bold'
                         : 'text-zinc-400 hover:text-white p-2'
                     )}
                   >
@@ -225,16 +222,35 @@ export function BottomNav() {
                 </Link>
               );
             })}
+
+            {/* Menu Drawer Button inside Dock */}
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(true)}
+              aria-label="Semua Menu"
+              className="focus:outline-none"
+            >
+              <div
+                className={cn(
+                  'flex items-center justify-center transition-all duration-200 rounded-full select-none cursor-pointer',
+                  showMoreMenu
+                    ? 'bg-white text-zinc-950 px-3 py-1.5 gap-1 shadow-sm font-bold'
+                    : 'text-zinc-400 hover:text-white p-2'
+                )}
+              >
+                <LayoutGrid className="h-4.5 w-4.5 stroke-[1.8]" />
+              </div>
+            </button>
           </nav>
 
           {/* Action Button: Detached Floating Circle (+ Catat) */}
           <button
-            onClick={() => setActiveModal('transaction')}
-            aria-label="Catat Transaksi"
-            title="Catat Transaksi"
-            className="h-12 w-12 shrink-0 rounded-full bg-zinc-950 dark:bg-zinc-900 border border-zinc-800/90 text-white flex items-center justify-center transition-all duration-200 shadow-[0_16px_36px_rgba(0,0,0,0.5)] backdrop-blur-md hover:bg-zinc-800 active:scale-90 cursor-pointer select-none"
+            onClick={() => setShowFabMenu(true)}
+            aria-label="Catat Keuangan Cepat"
+            title="Catat Keuangan Cepat"
+            className="h-12 w-12 shrink-0 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center transition-all duration-200 shadow-[0_16px_36px_rgba(16,185,129,0.35)] backdrop-blur-md active:scale-90 cursor-pointer select-none"
           >
-            <Plus className="h-6 w-6 stroke-[2.6]" />
+            <Plus className="h-6 w-6 stroke-[2.8]" />
           </button>
 
         </div>
