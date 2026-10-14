@@ -1018,6 +1018,32 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: account.user_id && account.user_id !== 'default-user' ? account.user_id : activeUid,
     };
     await storage.saveAccount(sanitized);
+
+    // Direct push to Supabase for immediate cross-device sync
+    if (isSupabaseConfigured() && supabase && sanitized.user_id && sanitized.user_id !== 'local_user' && sanitized.user_id !== 'default-user') {
+      try {
+        const { error } = await supabase.from('accounts').upsert({
+          id: sanitized.id,
+          user_id: sanitized.user_id,
+          name: sanitized.name,
+          type: sanitized.type,
+          account_number: sanitized.account_number || null,
+          institution_name: sanitized.institution_name || null,
+          currency: sanitized.currency || 'IDR',
+          opening_balance: Number(sanitized.opening_balance || 0),
+          current_balance: Number(sanitized.current_balance || 0),
+          color: sanitized.color || '#10B981',
+          is_active: sanitized.is_active !== false,
+          is_archived: Boolean(sanitized.is_archived),
+        });
+        if (!error) {
+          await removeSyncQueueItem(sanitized.id);
+        }
+      } catch (cloudErr) {
+        console.warn('[FinanceContext] Direct account push notice:', cloudErr);
+      }
+    }
+
     if (isSupabaseConfigured() && supabase) {
       await processSyncQueue(sanitized.user_id);
     }
@@ -1026,8 +1052,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = async (id: string) => {
     await storage.deleteAccount(id);
-    if (isSupabaseConfigured() && supabase) {
-      await processSyncQueue(user?.id);
+    if (isSupabaseConfigured() && supabase && user?.id) {
+      try {
+        await supabase.from('accounts').delete().eq('id', id);
+      } catch {}
+      await processSyncQueue(user.id);
     }
     await loadAll();
   };
@@ -1040,6 +1069,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: category.user_id && category.user_id !== 'default-user' ? category.user_id : activeUid,
     };
     await storage.saveCategory(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
     await loadAll();
   };
 
@@ -1182,6 +1214,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const rem = reminders.find((r) => r.id === id);
     if (!rem) return;
     await storage.saveReminder({ ...rem, is_completed: !rem.is_completed });
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(rem.user_id);
+    }
     await loadAll();
   };
 

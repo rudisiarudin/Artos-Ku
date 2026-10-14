@@ -151,8 +151,28 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             is_archived: Boolean(record.is_archived),
           };
           const { error } = await supabase.from('accounts').upsert(accountPayload);
-          if (error) console.warn('[SyncEngine] accounts upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] accounts upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
+        } else if (table === 'categories') {
+          const catPayload = {
+            id: record.id,
+            user_id: activeUserId,
+            name: record.name,
+            type: record.type,
+            icon: record.icon || 'tag',
+            color: record.color || '#64748B',
+            is_system: Boolean(record.is_system),
+            created_at: record.created_at || new Date().toISOString(),
+          };
+          const { error } = await supabase.from('categories').upsert(catPayload);
+          if (error) {
+            console.warn('[SyncEngine] categories upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'assets') {
           const assetPayload: Record<string, unknown> = {
             id: record.id,
@@ -177,8 +197,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             const retryRes = await supabase.from('investment_assets').upsert(assetPayload);
             error = retryRes.error;
           }
-          if (error) console.warn('[SyncEngine] assets upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] assets upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'transactions') {
           const txType = (record.type as string) || 'expense';
           const txDesc = (record.description as string) || (record.name as string) || 'Transaksi';
@@ -243,8 +266,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             purpose: record.purpose || null,
           };
           const { error } = await supabase.from('receivables').upsert(recPayload);
-          if (error) console.warn('[SyncEngine] receivables upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] receivables upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'debts') {
           const startDateStr = typeof record.start_date === 'string' ? record.start_date : new Date().toISOString();
           const debtPayload = {
@@ -266,8 +292,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             start_date: startDateStr.split('T')[0],
           };
           const { error } = await supabase.from('debts').upsert(debtPayload);
-          if (error) console.warn('[SyncEngine] debts upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] debts upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'receivable_payments') {
           const paymentPayload = {
             id: record.id,
@@ -281,8 +310,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             notes: record.notes || null,
           };
           const { error } = await supabase.from('receivable_payments').upsert(paymentPayload);
-          if (error) console.warn('[SyncEngine] receivable_payments upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] receivable_payments upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'debt_payments') {
           const debtPayPayload = {
             id: record.id,
@@ -298,8 +330,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             notes: record.notes || null,
           };
           const { error } = await supabase.from('debt_payments').upsert(debtPayPayload);
-          if (error) console.warn('[SyncEngine] debt_payments upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] debt_payments upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'trades' || table === 'investment_trades') {
           const tradePayload = {
             id: record.id,
@@ -321,8 +356,11 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             const retryRes = await supabase.from('trades').upsert(tradePayload);
             error = retryRes.error;
           }
-          if (error) console.warn('[SyncEngine] trades upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] trades upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'budgets') {
           const normCatId = normalizeCategoryId(record.category_id as string);
           if (!normCatId) {
@@ -339,16 +377,39 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             updated_at: new Date().toISOString(),
           };
           const { error } = await supabase.from('budgets').upsert(budgetPayload, { onConflict: 'user_id, category_id, month_year' });
-          if (error) console.warn('[SyncEngine] budgets upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] budgets upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
+        } else if (table === 'reminders') {
+          const remPayload = {
+            id: record.id,
+            user_id: activeUserId,
+            title: record.title,
+            message: record.message || null,
+            type: record.type || 'custom',
+            due_date: record.due_date || new Date().toISOString(),
+            related_id: isValidUUID(record.related_id as string) ? record.related_id : null,
+            is_completed: Boolean(record.is_completed),
+            created_at: record.created_at || new Date().toISOString(),
+          };
+          const { error } = await supabase.from('reminders').upsert(remPayload);
+          if (error) {
+            console.warn('[SyncEngine] reminders upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else {
           const { error } = await supabase.from(table).upsert(record);
-          if (error) console.warn(`[SyncEngine] ${table} upsert notice:`, error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn(`[SyncEngine] ${table} upsert notice:`, error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         }
       } catch (itemErr) {
         console.warn(`[SyncEngine] Error processing sync item ${item.id}:`, itemErr);
-        await removeSyncQueueItem(item.id);
       }
     }
 

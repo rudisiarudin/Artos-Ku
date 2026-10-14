@@ -371,10 +371,20 @@ class ArtosKuStorage {
   }
 
   async saveCategory(category: Category): Promise<void> {
+    const sanitizedCat: Category = {
+      ...category,
+      id: isValidUUID(category.id) ? category.id : generateUUID(),
+    };
     const list = await this.getCategories();
-    const idx = list.findIndex((c) => c.id === category.id);
-    const updated = idx >= 0 ? list.map((c) => (c.id === category.id ? category : c)) : [category, ...list];
+    const idx = list.findIndex((c) => c.id === sanitizedCat.id);
+    const updated = idx >= 0 ? list.map((c) => (c.id === sanitizedCat.id ? sanitizedCat : c)) : [sanitizedCat, ...list];
     await this.setCollection(STORAGE_KEYS.CATEGORIES, updated);
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'categories',
+      data: sanitizedCat as unknown as Record<string, unknown>,
+    });
+    processSyncQueue().catch(() => {});
   }
 
   // INVESTMENTS
@@ -663,10 +673,20 @@ class ArtosKuStorage {
   }
 
   async saveReminder(rem: Reminder): Promise<void> {
+    const sanitizedRem: Reminder = {
+      ...rem,
+      id: isValidUUID(rem.id) ? rem.id : generateUUID(),
+    };
     const list = await this.getReminders();
-    const idx = list.findIndex((r) => r.id === rem.id);
-    const updated = idx >= 0 ? list.map((r) => (r.id === rem.id ? rem : r)) : [rem, ...list];
+    const idx = list.findIndex((r) => r.id === sanitizedRem.id);
+    const updated = idx >= 0 ? list.map((r) => (r.id === sanitizedRem.id ? sanitizedRem : r)) : [sanitizedRem, ...list];
     await this.setCollection(STORAGE_KEYS.REMINDERS, updated);
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'reminders',
+      data: sanitizedRem as unknown as Record<string, unknown>,
+    });
+    processSyncQueue().catch(() => {});
   }
 
   // EXPORT / IMPORT / RESET
