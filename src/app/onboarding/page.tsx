@@ -22,7 +22,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { formatIDR } from '../../lib/finance/formatters';
-import { cn } from '../../lib/utils';
+import { cn, generateUUID } from '../../lib/utils';
 import {
   BcaLogo,
   MandiriLogo,
@@ -216,12 +216,9 @@ export default function OnboardingPage() {
         const { data: { session } } = await supabase.auth.getSession();
         activeUserId = session?.user?.id;
       }
-      activeUserId = activeUserId || `user_${Date.now()}`;
+      activeUserId = activeUserId || 'default-user';
 
-      const accountId =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `acc_init_${Date.now()}`;
+      const accountId = generateUUID();
 
       const newAccount: Account = {
         id: accountId,

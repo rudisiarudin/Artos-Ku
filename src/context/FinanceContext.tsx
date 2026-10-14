@@ -21,11 +21,11 @@ import {
   calculateNetWorth,
   PortfolioPosition,
 } from '../lib/finance/calculations';
-import { addToSyncQueue } from '../lib/db/indexeddb';
+import { addToSyncQueue, removeSyncQueueItem } from '../lib/db/indexeddb';
 import { supabase, isSupabaseConfigured } from '../lib/db/supabase';
 import { User } from '@supabase/supabase-js';
 import { generateUUID, isValidUUID } from '../lib/utils';
-import { processSyncQueue } from '../lib/db/sync';
+import { processSyncQueue, normalizeCategoryId, normalizeReferenceId } from '../lib/db/sync';
 
 interface FinanceContextType {
   accounts: Account[];
@@ -152,35 +152,79 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         const isSeedId = (id: string) =>
           ['acc-bca', 'acc-mandiri', 'acc-gopay', 'acc-cash', 'acc-rdi'].includes(id) ||
           id.startsWith('tx-demo') ||
-          id.startsWith('trade-') ||
-          id.startsWith('rec-') ||
-          id.startsWith('debt-');
+          id.startsWith('trade-demo') ||
+          id.startsWith('rec-demo') ||
+          id.startsWith('debt-demo');
 
         let modified = false;
+        const idReplacements = new Map<string, string>();
+
         accs.forEach((a) => {
+          if (!isValidUUID(a.id) && !isSeedId(a.id)) {
+            const newId = generateUUID();
+            idReplacements.set(a.id, newId);
+            a.id = newId;
+            modified = true;
+          }
           if (a.user_id !== targetUserId && !isSeedId(a.id)) {
             a.user_id = targetUserId;
             modified = true;
           }
         });
+
         txs.forEach((t) => {
+          if (!isValidUUID(t.id) && !isSeedId(t.id)) {
+            t.id = generateUUID();
+            modified = true;
+          }
+          if (t.source_account_id && idReplacements.has(t.source_account_id)) {
+            t.source_account_id = idReplacements.get(t.source_account_id)!;
+            modified = true;
+          }
+          if (t.destination_account_id && idReplacements.has(t.destination_account_id)) {
+            t.destination_account_id = idReplacements.get(t.destination_account_id)!;
+            modified = true;
+          }
           if (t.user_id !== targetUserId && !isSeedId(t.id)) {
             t.user_id = targetUserId;
             modified = true;
           }
         });
+
         recs.forEach((r) => {
+          if (!isValidUUID(r.id) && !isSeedId(r.id)) {
+            r.id = generateUUID();
+            modified = true;
+          }
+          if (r.account_id && idReplacements.has(r.account_id)) {
+            r.account_id = idReplacements.get(r.account_id)!;
+            modified = true;
+          }
           if (r.user_id !== targetUserId && !isSeedId(r.id)) {
             r.user_id = targetUserId;
             modified = true;
           }
         });
+
         dbts.forEach((d) => {
+          if (!isValidUUID(d.id) && !isSeedId(d.id)) {
+            d.id = generateUUID();
+            modified = true;
+          }
+          if (d.disbursement_account_id && idReplacements.has(d.disbursement_account_id)) {
+            d.disbursement_account_id = idReplacements.get(d.disbursement_account_id)!;
+            modified = true;
+          }
+          if (d.payment_account_id && idReplacements.has(d.payment_account_id)) {
+            d.payment_account_id = idReplacements.get(d.payment_account_id)!;
+            modified = true;
+          }
           if (d.user_id !== targetUserId && !isSeedId(d.id)) {
             d.user_id = targetUserId;
             modified = true;
           }
         });
+
         bdgs.forEach((b) => {
           if (b.user_id !== targetUserId) {
             b.user_id = targetUserId;
@@ -204,20 +248,24 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         ['acc-bca', 'acc-mandiri', 'acc-gopay', 'acc-cash', 'acc-rdi'].includes(id) ||
         (typeof id === 'string' &&
           (id.startsWith('tx-demo') ||
-            id.startsWith('trade-') ||
-            id.startsWith('rec-') ||
-            id.startsWith('debt-')));
+            id.startsWith('trade-demo') ||
+            id.startsWith('rec-demo') ||
+            id.startsWith('debt-demo')));
 
-      const cleanAccs = targetUserId
-        ? accs.filter((a) => !isSeedFixture(a.id) && (a.user_id === targetUserId || a.user_id === 'default-user' || a.user_id === 'user_local' || a.user_id === 'local_user'))
-        : accs.filter((a) => !isSeedFixture(a.id));
-      const cleanTxs = targetUserId
-        ? txs.filter((t) => !isSeedFixture(t.id) && (t.user_id === targetUserId || t.user_id === 'default-user' || t.user_id === 'user_local' || t.user_id === 'local_user'))
-        : txs.filter((t) => !isSeedFixture(t.id));
-      let cleanAssets = targetUserId ? asts.filter((a) => !isSeedFixture(a.id) && a.user_id === targetUserId) : asts.filter((a) => !isSeedFixture(a.id));
-      let cleanTrades = targetUserId ? trds.filter((t) => !isSeedFixture(t.id) && t.user_id === targetUserId) : trds.filter((t) => !isSeedFixture(t.id));
-      let cleanRecs = targetUserId ? recs.filter((r) => !isSeedFixture(r.id) && r.user_id === targetUserId) : recs.filter((r) => !isSeedFixture(r.id));
-      let cleanDebts = targetUserId ? dbts.filter((d) => !isSeedFixture(d.id) && d.user_id === targetUserId) : dbts.filter((d) => !isSeedFixture(d.id));
+      const isAllowedUserId = (uid?: string | null) =>
+        !targetUserId ||
+        uid === targetUserId ||
+        uid === 'default-user' ||
+        uid === 'user_local' ||
+        uid === 'local_user' ||
+        Boolean(uid && uid.startsWith('user_'));
+
+      const cleanAccs = accs.filter((a) => !isSeedFixture(a.id) && isAllowedUserId(a.user_id));
+      const cleanTxs = txs.filter((t) => !isSeedFixture(t.id) && isAllowedUserId(t.user_id));
+      let cleanAssets = targetUserId ? asts.filter((a) => !isSeedFixture(a.id) && isAllowedUserId(a.user_id)) : asts.filter((a) => !isSeedFixture(a.id));
+      let cleanTrades = targetUserId ? trds.filter((t) => !isSeedFixture(t.id) && isAllowedUserId(t.user_id)) : trds.filter((t) => !isSeedFixture(t.id));
+      let cleanRecs = targetUserId ? recs.filter((r) => !isSeedFixture(r.id) && isAllowedUserId(r.user_id)) : recs.filter((r) => !isSeedFixture(r.id));
+      let cleanDebts = targetUserId ? dbts.filter((d) => !isSeedFixture(d.id) && isAllowedUserId(d.user_id)) : dbts.filter((d) => !isSeedFixture(d.id));
       let cleanBudgets = targetUserId ? bdgs.filter((b) => b.user_id === targetUserId) : bdgs;
       let cleanReminders = targetUserId ? rems.filter((r) => r.user_id === targetUserId) : rems;
 
@@ -580,6 +628,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               router.push('/');
             }
           }
+          await loadAll();
         }
       });
 
@@ -588,7 +637,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         subscription.unsubscribe();
       };
     }
-  }, [pathname, router]);
+  }, [pathname, router, loadAll]);
 
   // Network & Cross-Device Data Sync Listener
   useEffect(() => {
@@ -738,10 +787,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     // 3. If opening balance > 0, record ONLY the single Initial Balance Transaction
     let initialTx: Transaction | null = null;
     if (Number(initialAccount.opening_balance) > 0) {
-      const txId =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `tx_init_${Date.now()}`;
+      const txId = generateUUID();
 
       initialTx = {
         id: txId,
@@ -855,6 +901,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         authUid = session?.user?.id;
+        if (authUid && !user) {
+          setUser(session?.user || null);
+          setIsAuthenticated(true);
+        }
       } catch {}
     }
     const activeUid = authUid || getActiveUserId();
@@ -862,10 +912,86 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       ...txData,
       id: generateUUID(),
       user_id: activeUid,
+      source_account_id: isValidUUID(txData.source_account_id) ? txData.source_account_id : null,
+      destination_account_id: isValidUUID(txData.destination_account_id) ? txData.destination_account_id : null,
+      category_id: normalizeCategoryId(txData.category_id),
+      reference_id: normalizeReferenceId(txData.reference_id),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    // 1. Immediately record in local storage (IndexedDB)
     await storage.addTransaction(newTx);
+
+    // 2. Immediately update in-memory React state for instantaneous mobile UI feedback
+    setTransactions((prev) => [newTx, ...prev.filter((t) => t.id !== newTx.id)]);
+
+    // 3. Direct push to Supabase for instantaneous cloud sync (PC receives Realtime notification)
+    if (isSupabaseConfigured() && supabase && authUid && authUid !== 'local_user' && authUid !== 'default-user') {
+      try {
+        const txPayload: Record<string, unknown> = {
+          id: newTx.id,
+          user_id: authUid,
+          date: newTx.date,
+          type: newTx.type,
+          description: newTx.description || 'Transaksi',
+          amount: Number(newTx.amount),
+          source_account_id: newTx.source_account_id,
+          destination_account_id: newTx.destination_account_id,
+          category_id: newTx.category_id,
+          payment_method: newTx.payment_method || 'transfer',
+          tags: Array.isArray(newTx.tags) ? newTx.tags : [],
+          reference_id: newTx.reference_id,
+        };
+        if (newTx.notes) txPayload.notes = newTx.notes;
+
+        let { error: txErr } = await supabase.from('transactions').upsert(txPayload);
+        if (
+          txErr &&
+          (txErr.code === '23503' ||
+            txErr.message.toLowerCase().includes('foreign key') ||
+            txErr.message.toLowerCase().includes('violates foreign key constraint'))
+        ) {
+          txPayload.category_id = null;
+          txPayload.source_account_id = null;
+          txPayload.destination_account_id = null;
+          const retry = await supabase.from('transactions').upsert(txPayload);
+          txErr = retry.error;
+        }
+
+        if (!txErr) {
+          // Direct cloud write succeeded, remove item from sync queue
+          await removeSyncQueueItem(newTx.id);
+
+          // Also push source account updated balance to Supabase
+          if (newTx.source_account_id) {
+            const updatedAccs = await storage.getAccounts();
+            const srcAcc = updatedAccs.find((a) => a.id === newTx.source_account_id);
+            if (srcAcc) {
+              await supabase.from('accounts').upsert({
+                id: srcAcc.id,
+                user_id: authUid,
+                name: srcAcc.name,
+                type: srcAcc.type,
+                account_number: srcAcc.account_number || null,
+                institution_name: srcAcc.institution_name || null,
+                currency: srcAcc.currency || 'IDR',
+                opening_balance: Number(srcAcc.opening_balance || 0),
+                current_balance: Number(srcAcc.current_balance || 0),
+                color: srcAcc.color || '#10B981',
+                is_active: srcAcc.is_active !== false,
+                is_archived: Boolean(srcAcc.is_archived),
+              });
+            }
+          }
+        } else {
+          console.warn('[FinanceContext] Direct cloud push notice, queue will retry:', txErr.message);
+        }
+      } catch (cloudErr) {
+        console.warn('[FinanceContext] Direct cloud push exception:', cloudErr);
+      }
+    }
+
     if (isSupabaseConfigured() && supabase && activeUid) {
       await processSyncQueue(activeUid);
     }
@@ -874,8 +1000,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTransaction = async (id: string) => {
     await storage.deleteTransaction(id);
-    if (isSupabaseConfigured() && supabase) {
-      await processSyncQueue(user?.id);
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    if (isSupabaseConfigured() && supabase && user?.id) {
+      try {
+        await supabase.from('transactions').delete().eq('id', id);
+      } catch {}
+      await processSyncQueue(user.id);
     }
     await loadAll();
   };

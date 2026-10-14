@@ -53,10 +53,10 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
     const { data: { session } } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || fallbackUserId;
 
-    if (!activeUserId || !session?.user?.id) {
-      // User is operating in local/guest mode; clear sync queue to avoid infinite spinning
-      await clearSyncQueue();
-      return 0;
+    if (!session?.user?.id) {
+      // User session is not yet active or offline; keep sync queue intact so items sync upon login
+      const queue = await getSyncQueue();
+      return queue.length;
     }
 
     const queue = await getSyncQueue();
@@ -95,17 +95,19 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
       console.warn('[SyncEngine] Category seed sync notice:', catErr);
     }
 
+    const SEED_ACCOUNT_IDS = ['acc-bca', 'acc-mandiri', 'acc-gopay', 'acc-cash', 'acc-rdi'];
+
     for (const item of sortedQueue) {
       try {
-        // Discard any dummy seed record items that should not be synced
+        // Discard only mock demo seed fixtures that should never be sent to cloud
         if (
           item.data &&
-          (item.data.user_id === 'default-user' ||
-            item.data.id === 'acc-bca' ||
-            item.data.id === 'acc-mandiri' ||
-            item.data.id === 'acc-gopay' ||
-            item.data.id === 'acc-cash' ||
-            item.data.id === 'acc-rdi')
+          (SEED_ACCOUNT_IDS.includes(item.data.id as string) ||
+            (typeof item.data.id === 'string' &&
+              (item.data.id.startsWith('tx-demo') ||
+                item.data.id.startsWith('trade-demo') ||
+                item.data.id.startsWith('rec-demo') ||
+                item.data.id.startsWith('debt-demo'))))
         ) {
           await removeSyncQueueItem(item.id);
           continue;
@@ -200,27 +202,29 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
 
           let { error } = await supabase.from('transactions').upsert(txPayload);
           // If foreign key constraint failed on category_id or account IDs, retry with null
-          if (error && (error.message.includes('foreign key') || error.message.includes('violates foreign key constraint'))) {
-            if (error.message.includes('category_id')) {
-              txPayload.category_id = null;
-            }
-            if (error.message.includes('source_account_id')) {
-              txPayload.source_account_id = null;
-            }
-            if (error.message.includes('destination_account_id')) {
-              txPayload.destination_account_id = null;
-            }
+          if (
+            error &&
+            (error.code === '23503' ||
+              error.message.toLowerCase().includes('foreign key') ||
+              error.message.toLowerCase().includes('violates foreign key constraint'))
+          ) {
+            txPayload.category_id = null;
+            txPayload.source_account_id = null;
+            txPayload.destination_account_id = null;
             const retryRes = await supabase.from('transactions').upsert(txPayload);
             error = retryRes.error;
           }
           // If Supabase schema does not have 'notes' column, remove and retry
-          if (error && (error.message.includes("'notes'") || error.message.includes('notes'))) {
+          if (error && (error.message.includes("'notes'") || error.message.toLowerCase().includes('notes'))) {
             delete txPayload.notes;
             const retryRes = await supabase.from('transactions').upsert(txPayload);
             error = retryRes.error;
           }
-          if (error) console.warn('[SyncEngine] transactions upsert notice:', error.message);
-          await removeSyncQueueItem(item.id);
+          if (error) {
+            console.warn('[SyncEngine] transactions upsert notice:', error.message);
+          } else {
+            await removeSyncQueueItem(item.id);
+          }
         } else if (table === 'receivables') {
           const loanDateStr = typeof record.loan_date === 'string' ? record.loan_date : new Date().toISOString();
           const dueDateStr = typeof record.due_date === 'string' ? record.due_date : new Date().toISOString();
