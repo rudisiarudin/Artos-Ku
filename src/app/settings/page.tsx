@@ -2,17 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Settings as SettingsIcon,
   Database,
   Download,
   Upload,
   RotateCcw,
   Tag,
   Palette,
-  Shield,
   CheckCircle2,
-  AlertTriangle,
-  Plus,
   Send,
   Eye,
   EyeOff,
@@ -204,10 +200,10 @@ export default function SettingsPage() {
         success: Boolean(data.success),
         message: data.message || (data.success ? 'Webhook berhasil diaktifkan!' : 'Gagal mengaktifkan webhook'),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setWebhookResult({
         success: false,
-        message: err?.message || 'Gagal menghubungi server.',
+        message: (err as Error)?.message || 'Gagal menghubungi server.',
       });
     } finally {
       setIsActivatingWebhook(false);
@@ -252,10 +248,10 @@ export default function SettingsPage() {
           message: res.message,
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTelegramTestResult({
         success: false,
-        message: err?.message || 'Gagal menghubungi endpoint Telegram.',
+        message: (err as Error)?.message || 'Gagal menghubungi endpoint Telegram.',
       });
     } finally {
       setIsTestingTelegram(false);

@@ -51,7 +51,7 @@ export function StatCard({
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-muted-foreground line-clamp-1">{title}</span>
           {Icon && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", iconBgColor, iconColor)}>
               <Icon className="h-4 w-4" />
             </div>
           )}

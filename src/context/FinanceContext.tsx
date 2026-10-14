@@ -21,8 +21,9 @@ import {
   calculateNetWorth,
   PortfolioPosition,
 } from '../lib/finance/calculations';
-import { getSyncQueue, addToSyncQueue } from '../lib/db/indexeddb';
+import { addToSyncQueue } from '../lib/db/indexeddb';
 import { supabase, isSupabaseConfigured } from '../lib/db/supabase';
+import { User } from '@supabase/supabase-js';
 import { generateUUID, isValidUUID } from '../lib/utils';
 import { processSyncQueue } from '../lib/db/sync';
 
@@ -51,7 +52,7 @@ interface FinanceContextType {
   isPrivacyMode: boolean;
   togglePrivacyMode: () => void;
   // Auth & Onboarding
-  user: any | null;
+  user: User | null;
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
   logout: () => Promise<void>;
@@ -78,7 +79,10 @@ interface FinanceContextType {
   saveDebt: (debt: Debt) => Promise<void>;
   deleteDebt: (id: string) => Promise<void>;
   recordDebtPayment: (payment: Omit<DebtPayment, 'id' | 'created_at'>) => Promise<void>;
+  selectedDebt: Debt | null;
+  setSelectedDebt: (debt: Debt | null) => void;
   saveBudget: (budget: Budget) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
   toggleReminder: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
   resetDemoData: () => Promise<void>;
@@ -98,6 +102,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,7 +114,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(false);
 
   // Auth and Onboarding State
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(true);
 
@@ -152,31 +157,31 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
         let modified = false;
         accs.forEach((a) => {
-          if (a.user_id === 'default-user' && !isSeedId(a.id)) {
+          if (a.user_id !== targetUserId && !isSeedId(a.id)) {
             a.user_id = targetUserId;
             modified = true;
           }
         });
         txs.forEach((t) => {
-          if (t.user_id === 'default-user' && !isSeedId(t.id)) {
+          if (t.user_id !== targetUserId && !isSeedId(t.id)) {
             t.user_id = targetUserId;
             modified = true;
           }
         });
         recs.forEach((r) => {
-          if (r.user_id === 'default-user' && !isSeedId(r.id)) {
+          if (r.user_id !== targetUserId && !isSeedId(r.id)) {
             r.user_id = targetUserId;
             modified = true;
           }
         });
         dbts.forEach((d) => {
-          if (d.user_id === 'default-user' && !isSeedId(d.id)) {
+          if (d.user_id !== targetUserId && !isSeedId(d.id)) {
             d.user_id = targetUserId;
             modified = true;
           }
         });
         bdgs.forEach((b) => {
-          if (b.user_id === 'default-user') {
+          if (b.user_id !== targetUserId) {
             b.user_id = targetUserId;
             modified = true;
           }
@@ -202,8 +207,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             id.startsWith('rec-') ||
             id.startsWith('debt-')));
 
-      let cleanAccs = targetUserId ? accs.filter((a) => !isSeedFixture(a.id) && a.user_id === targetUserId) : accs.filter((a) => !isSeedFixture(a.id));
-      let cleanTxs = targetUserId ? txs.filter((t) => !isSeedFixture(t.id) && t.user_id === targetUserId) : txs.filter((t) => !isSeedFixture(t.id));
+      const cleanAccs = targetUserId
+        ? accs.filter((a) => !isSeedFixture(a.id) && (a.user_id === targetUserId || a.user_id === 'default-user' || a.user_id === 'user_local' || a.user_id === 'local_user'))
+        : accs.filter((a) => !isSeedFixture(a.id));
+      const cleanTxs = targetUserId
+        ? txs.filter((t) => !isSeedFixture(t.id) && (t.user_id === targetUserId || t.user_id === 'default-user' || t.user_id === 'user_local' || t.user_id === 'local_user'))
+        : txs.filter((t) => !isSeedFixture(t.id));
       let cleanAssets = targetUserId ? asts.filter((a) => !isSeedFixture(a.id) && a.user_id === targetUserId) : asts.filter((a) => !isSeedFixture(a.id));
       let cleanTrades = targetUserId ? trds.filter((t) => !isSeedFixture(t.id) && t.user_id === targetUserId) : trds.filter((t) => !isSeedFixture(t.id));
       let cleanRecs = targetUserId ? recs.filter((r) => !isSeedFixture(r.id) && r.user_id === targetUserId) : recs.filter((r) => !isSeedFixture(r.id));
@@ -224,43 +233,71 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             await processSyncQueue(uid);
 
             // 2. Query latest authoritative state from Supabase
-            const [dbAccs, dbTxs, dbAssets, dbTrades, dbRecs, dbDebts, dbBudgets, dbReminders] = await Promise.all([
+            let dbTradesRes = await supabase.from('investment_trades').select('*').eq('user_id', uid).order('trade_date', { ascending: false });
+            if (dbTradesRes.error) {
+              dbTradesRes = await supabase.from('trades').select('*').eq('user_id', uid).order('created_at', { ascending: false });
+            }
+
+            const [dbAccs, dbTxs, dbAssets, dbRecs, dbDebts, dbBudgets, dbReminders] = await Promise.all([
               supabase.from('accounts').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
               supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
               supabase.from('assets').select('*').eq('user_id', uid),
-              supabase.from('trades').select('*').eq('user_id', uid).order('date', { ascending: false }),
               supabase.from('receivables').select('*').eq('user_id', uid),
               supabase.from('debts').select('*').eq('user_id', uid),
               supabase.from('budgets').select('*').eq('user_id', uid),
               supabase.from('reminders').select('*').eq('user_id', uid),
             ]);
 
-            // If local has accounts that aren't yet in Supabase, push them to Supabase cloud
-            if (cleanAccs.length > 0 && (!dbAccs.data || dbAccs.data.length === 0)) {
+            // Reconcile Accounts (Ensures PC and Mobile accounts stay completely in sync)
+            if (dbAccs.data && dbAccs.data.length > 0) {
+              const dbIds = new Set(dbAccs.data.map((a: Account) => a.id));
+              const missingOnCloud = cleanAccs.filter((a) => !dbIds.has(a.id));
+              if (missingOnCloud.length > 0) {
+                for (const acc of missingOnCloud) {
+                  await addToSyncQueue({ action: 'insert', table: 'accounts', data: acc as unknown as Record<string, unknown> });
+                }
+                await processSyncQueue(uid);
+                resolvedAccs = [...dbAccs.data, ...missingOnCloud];
+              } else {
+                resolvedAccs = dbAccs.data;
+              }
+              await storage.setCollection('artosku_accounts', resolvedAccs);
+            } else if (cleanAccs.length > 0) {
               for (const acc of cleanAccs) {
-                await addToSyncQueue({ action: 'insert', table: 'accounts', data: acc });
+                await addToSyncQueue({ action: 'insert', table: 'accounts', data: acc as unknown as Record<string, unknown> });
               }
               await processSyncQueue(uid);
-            } else if (dbAccs.data && dbAccs.data.length > 0) {
-              resolvedAccs = dbAccs.data;
-              await storage.setCollection('artosku_accounts', dbAccs.data);
             }
 
-            // If local has transactions that aren't yet in Supabase, push them to Supabase cloud
-            if (cleanTxs.length > 0 && (!dbTxs.data || dbTxs.data.length === 0)) {
-              for (const tx of cleanTxs) {
-                await addToSyncQueue({ action: 'insert', table: 'transactions', data: tx });
+            // Reconcile Transactions (Ensures transactions recorded on mobile or PC are merged)
+            if (dbTxs.data && dbTxs.data.length > 0) {
+              const dbIds = new Set(dbTxs.data.map((t: Transaction) => t.id));
+              const missingOnCloud = cleanTxs.filter((t) => !dbIds.has(t.id));
+              if (missingOnCloud.length > 0) {
+                for (const tx of missingOnCloud) {
+                  await addToSyncQueue({ action: 'insert', table: 'transactions', data: tx as unknown as Record<string, unknown> });
+                }
+                await processSyncQueue(uid);
+                resolvedTxs = [...dbTxs.data, ...missingOnCloud];
+              } else {
+                resolvedTxs = dbTxs.data;
               }
-              await processSyncQueue(uid);
-            } else if (dbTxs.data && dbTxs.data.length > 0) {
-              const normalizedTxs = dbTxs.data.map((t: any) => ({
+              const normalizedTxs = resolvedTxs.map((t: Transaction) => ({
                 ...t,
-                description: t.description || t.name || 'Transaksi',
-                type: t.type || t.kind || 'expense',
+                description: t.description || 'Transaksi',
+                type: t.type || 'expense',
               }));
               resolvedTxs = normalizedTxs;
               await storage.setCollection('artosku_transactions', normalizedTxs);
+            } else if (cleanTxs.length > 0) {
+              resolvedTxs = cleanTxs;
+              for (const tx of cleanTxs) {
+                await addToSyncQueue({ action: 'insert', table: 'transactions', data: tx as unknown as Record<string, unknown> });
+              }
+              await processSyncQueue(uid);
+              await storage.setCollection('artosku_transactions', cleanTxs);
             }
+
             let resolvedAssets = dbAssets.data;
             if ((!resolvedAssets || resolvedAssets.length === 0) && dbAssets.error) {
               const alt = await supabase.from('investment_assets').select('*').eq('user_id', uid);
@@ -275,23 +312,28 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             // Reconcile Assets
             if (cleanAssets.length > 0 && (!resolvedAssets || resolvedAssets.length === 0)) {
               for (const asset of cleanAssets) {
-                await addToSyncQueue({ action: 'insert', table: 'assets', data: asset });
+                await addToSyncQueue({ action: 'insert', table: 'assets', data: asset as unknown as Record<string, unknown> });
               }
               await processSyncQueue(uid);
             }
 
-            if (dbTrades.data && dbTrades.data.length > 0) {
-              cleanTrades = dbTrades.data;
-              await storage.setCollection('artosku_trades', dbTrades.data);
+            if (dbTradesRes.data && dbTradesRes.data.length > 0) {
+              cleanTrades = dbTradesRes.data;
+              await storage.setCollection('artosku_trades', dbTradesRes.data);
+            } else if (cleanTrades.length > 0) {
+              for (const tr of cleanTrades) {
+                await addToSyncQueue({ action: 'insert', table: 'trades', data: tr as unknown as Record<string, unknown> });
+              }
+              await processSyncQueue(uid);
             }
 
             // Reconcile Receivables (Ensures HP local receivables push to Supabase so PC receives them)
             if (dbRecs.data && dbRecs.data.length > 0) {
-              const dbIds = new Set(dbRecs.data.map((r: any) => r.id));
+              const dbIds = new Set(dbRecs.data.map((r: Receivable) => r.id));
               const missingOnCloud = cleanRecs.filter((r) => !dbIds.has(r.id));
               if (missingOnCloud.length > 0) {
                 for (const rec of missingOnCloud) {
-                  await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec });
+                  await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec as unknown as Record<string, unknown> });
                 }
                 await processSyncQueue(uid);
                 cleanRecs = [...dbRecs.data, ...missingOnCloud];
@@ -301,18 +343,18 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               await storage.setCollection('artosku_receivables', cleanRecs);
             } else if (cleanRecs.length > 0) {
               for (const rec of cleanRecs) {
-                await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec });
+                await addToSyncQueue({ action: 'insert', table: 'receivables', data: rec as unknown as Record<string, unknown> });
               }
               await processSyncQueue(uid);
             }
 
             // Reconcile Debts
             if (dbDebts.data && dbDebts.data.length > 0) {
-              const dbIds = new Set(dbDebts.data.map((d: any) => d.id));
+              const dbIds = new Set(dbDebts.data.map((d: Debt) => d.id));
               const missingOnCloud = cleanDebts.filter((d) => !dbIds.has(d.id));
               if (missingOnCloud.length > 0) {
                 for (const debt of missingOnCloud) {
-                  await addToSyncQueue({ action: 'insert', table: 'debts', data: debt });
+                  await addToSyncQueue({ action: 'insert', table: 'debts', data: debt as unknown as Record<string, unknown> });
                 }
                 await processSyncQueue(uid);
                 cleanDebts = [...dbDebts.data, ...missingOnCloud];
@@ -322,14 +364,32 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               await storage.setCollection('artosku_debts', cleanDebts);
             } else if (cleanDebts.length > 0) {
               for (const debt of cleanDebts) {
-                await addToSyncQueue({ action: 'insert', table: 'debts', data: debt });
+                await addToSyncQueue({ action: 'insert', table: 'debts', data: debt as unknown as Record<string, unknown> });
               }
               await processSyncQueue(uid);
             }
+
+            // Reconcile Budgets
             if (dbBudgets.data && dbBudgets.data.length > 0) {
-              cleanBudgets = dbBudgets.data;
-              await storage.setCollection('artosku_budgets', dbBudgets.data);
+              const dbIds = new Set(dbBudgets.data.map((b: Budget) => b.id));
+              const missingOnCloud = cleanBudgets.filter((b) => !dbIds.has(b.id));
+              if (missingOnCloud.length > 0) {
+                for (const b of missingOnCloud) {
+                  await addToSyncQueue({ action: 'insert', table: 'budgets', data: b as unknown as Record<string, unknown> });
+                }
+                await processSyncQueue(uid);
+                cleanBudgets = [...dbBudgets.data, ...missingOnCloud];
+              } else {
+                cleanBudgets = dbBudgets.data;
+              }
+              await storage.setCollection('artosku_budgets', cleanBudgets);
+            } else if (cleanBudgets.length > 0) {
+              for (const b of cleanBudgets) {
+                await addToSyncQueue({ action: 'insert', table: 'budgets', data: b as unknown as Record<string, unknown> });
+              }
+              await processSyncQueue(uid);
             }
+
             if (dbReminders.data && dbReminders.data.length > 0) {
               cleanReminders = dbReminders.data;
               await storage.setCollection('artosku_reminders', dbReminders.data);
@@ -387,6 +447,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         await storage.setCollection('artosku_accounts', resolvedAccs);
       }
 
+      resolvedTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
       setAccounts(resolvedAccs);
       setCategories(cats);
       setTransactions(resolvedTxs);
@@ -409,7 +471,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    const checkIsOnboarded = async (currentUser: any): Promise<boolean> => {
+    const checkIsOnboarded = async (currentUser: User | null): Promise<boolean> => {
       // 1. Check user metadata from Supabase
       if (currentUser?.user_metadata?.onboarding_completed) {
         return true;
@@ -527,23 +589,62 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router]);
 
-  // Network & Data Load Listener
+  // Network & Cross-Device Data Sync Listener
   useEffect(() => {
     loadAll();
 
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      loadAll();
+    };
     const handleOffline = () => setIsOnline(false);
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAll();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      loadAll();
+    };
 
     if (typeof window !== 'undefined') {
       setIsOnline(navigator.onLine);
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
+      window.addEventListener('focus', handleWindowFocus);
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    // Subscribe to Supabase Realtime for instant cross-device updates (PC <-> HP)
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        channel = supabase
+          .channel('artosku_realtime_sync')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public' },
+            () => {
+              loadAll();
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn('Realtime channel subscription error:', err);
+      }
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
+        window.removeEventListener('focus', handleWindowFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
       }
     };
   }, [loadAll]);
@@ -748,17 +849,24 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => {
-    const activeUid = getActiveUserId();
+    let authUid = user?.id;
+    if (!authUid && isSupabaseConfigured() && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        authUid = session?.user?.id;
+      } catch {}
+    }
+    const activeUid = authUid || getActiveUserId();
     const newTx: Transaction = {
       ...txData,
       id: generateUUID(),
-      user_id: txData.user_id && txData.user_id !== 'default-user' ? txData.user_id : activeUid,
+      user_id: activeUid,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     await storage.addTransaction(newTx);
-    if (isSupabaseConfigured() && supabase) {
-      await processSyncQueue(newTx.user_id);
+    if (isSupabaseConfigured() && supabase && activeUid) {
+      await processSyncQueue(activeUid);
     }
     await loadAll();
   };
@@ -835,6 +943,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       created_at: new Date().toISOString(),
     };
     await storage.addTrade(newTrade);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(newTrade.user_id);
+    }
     await loadAll();
   };
 
@@ -922,6 +1033,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       user_id: budget.user_id && budget.user_id !== 'default-user' ? budget.user_id : activeUid,
     };
     await storage.saveBudget(sanitized);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(sanitized.user_id);
+    }
+    await loadAll();
+  };
+
+  const deleteBudget = async (id: string) => {
+    await storage.deleteBudget(id);
+    if (isSupabaseConfigured() && supabase) {
+      await processSyncQueue(user?.id);
+    }
     await loadAll();
   };
 
@@ -949,6 +1071,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         selectedReceivable,
         setSelectedReceivable,
         debts,
+        selectedDebt,
+        setSelectedDebt,
         budgets,
         reminders,
         positions,
@@ -992,6 +1116,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         deleteDebt,
         recordDebtPayment,
         saveBudget,
+        deleteBudget,
         toggleReminder,
         refreshData: loadAll,
         resetDemoData,

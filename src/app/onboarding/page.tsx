@@ -4,23 +4,15 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Wallet,
-  Building2,
-  Smartphone,
-  Banknote,
   TrendingUp,
   Sparkles,
-  CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  ShieldCheck,
-  CreditCard,
   Target,
   PieChart,
   DollarSign,
   Wifi,
-  Coins,
   Check,
-  Lock,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { supabase, isSupabaseConfigured } from '../../lib/db/supabase';

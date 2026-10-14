@@ -23,7 +23,6 @@ import {
   DEFAULT_REMINDERS,
 } from './seedData';
 import { addToSyncQueue, idbGet, idbSet, clearSyncQueue } from './indexeddb';
-import { supabase, isSupabaseConfigured } from './supabase';
 import { generateUUID, isValidUUID } from '../utils';
 import { normalizeCategoryId, normalizeReferenceId, processSyncQueue } from './sync';
 
@@ -109,7 +108,7 @@ class ArtosKuStorage {
     if (!this.isClient()) return;
     const cleanList = async (key: string) => {
       try {
-        let list = await idbGet<any[]>(key);
+        let list = await idbGet<Array<{ id?: string; user_id?: string }>>(key);
         if (!list) {
           const raw = localStorage.getItem(key);
           if (raw) list = JSON.parse(raw);
@@ -408,6 +407,13 @@ class ArtosKuStorage {
     const list = await this.getTrades();
     await this.setCollection(STORAGE_KEYS.TRADES, [sanitizedTrade, ...list]);
 
+    await addToSyncQueue({
+      action: 'insert',
+      table: 'trades',
+      data: sanitizedTrade as unknown as Record<string, unknown>,
+    });
+    processSyncQueue().catch(() => {});
+
     // Also register corresponding cash account deduction or credit
     if (sanitizedTrade.account_id) {
       const tx: Transaction = {
@@ -595,10 +601,37 @@ class ArtosKuStorage {
   }
 
   async saveBudget(budget: Budget): Promise<void> {
+    const sanitized: Budget = {
+      ...budget,
+      id: isValidUUID(budget.id) ? budget.id : generateUUID(),
+    };
     const list = await this.getBudgets();
-    const idx = list.findIndex((b) => b.category_id === budget.category_id && b.month_year === budget.month_year);
-    const updated = idx >= 0 ? list.map((b, i) => (i === idx ? budget : b)) : [budget, ...list];
+    const idx = list.findIndex((b) => b.category_id === sanitized.category_id && b.month_year === sanitized.month_year);
+    if (idx >= 0 && !budget.id) {
+      sanitized.id = list[idx].id;
+    }
+    const updated = idx >= 0 ? list.map((b, i) => (i === idx ? sanitized : b)) : [sanitized, ...list];
     await this.setCollection(STORAGE_KEYS.BUDGETS, updated);
+
+    await addToSyncQueue({
+      action: idx >= 0 ? 'update' : 'insert',
+      table: 'budgets',
+      data: sanitized as unknown as Record<string, unknown>,
+    });
+    processSyncQueue().catch(() => {});
+  }
+
+  async deleteBudget(id: string): Promise<void> {
+    const list = await this.getBudgets();
+    const updated = list.filter((b) => b.id !== id);
+    await this.setCollection(STORAGE_KEYS.BUDGETS, updated);
+
+    await addToSyncQueue({
+      action: 'delete',
+      table: 'budgets',
+      data: { id },
+    });
+    processSyncQueue().catch(() => {});
   }
 
   // REMINDERS

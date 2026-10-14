@@ -87,10 +87,10 @@ export const sendTelegramNotification = async (
       success: true,
       message: 'Pesan berhasil dikirim ke Telegram!',
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
-      message: err?.message || 'Terjadi kesalahan jaringan saat menghubungi server Telegram',
+      message: (err as Error)?.message || 'Terjadi kesalahan jaringan saat menghubungi server Telegram',
     };
   }
 };

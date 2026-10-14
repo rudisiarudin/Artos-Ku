@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search,
-  Filter,
   Download,
   Plus,
   Trash2,
@@ -11,13 +10,11 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   ArrowLeftRight,
-  Calendar,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR, formatIndonesianDate } from '../../lib/finance/formatters';
 import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Card } from '../../components/ui/card';
 

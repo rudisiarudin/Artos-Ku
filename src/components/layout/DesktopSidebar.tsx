@@ -25,7 +25,6 @@ import { BrandLogo } from '../shared/BrandLogo';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Card } from '../ui/card';
 
 export function DesktopSidebar() {
   const pathname = usePathname();

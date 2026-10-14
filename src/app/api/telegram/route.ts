@@ -407,7 +407,7 @@ export async function POST(req: NextRequest) {
     // Extract amount from tokens
     const tokens = textToParse.split(/\s+/);
     let detectedAmount: number | null = null;
-    let descTokens: string[] = [];
+    const descTokens: string[] = [];
 
     for (const token of tokens) {
       if (detectedAmount === null) {
@@ -519,8 +519,9 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error in /api/telegram handler:', err);
-    return NextResponse.json({ ok: false, error: err?.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

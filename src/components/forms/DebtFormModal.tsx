@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, CreditCard, Calculator } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CreditCard } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { calculateInstallment } from '../../lib/finance/calculations';
@@ -9,7 +9,7 @@ import { DebtInterestType, DebtType } from '../../lib/db/types';
 import { cn, generateUUID } from '../../lib/utils';
 
 export function DebtFormModal() {
-  const { activeModal, setActiveModal, debts, accounts, saveDebt, recordDebtPayment, user } = useFinance();
+  const { activeModal, setActiveModal, debts, accounts, saveDebt, recordDebtPayment, user, selectedDebt: initialSelectedDebt } = useFinance();
 
   const activeDebts = debts.filter((d) => d.status !== 'paid_off');
 
@@ -36,6 +36,16 @@ export function DebtFormModal() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialSelectedDebt) {
+      setMode('payment');
+      setSelectedDebtId(initialSelectedDebt.id);
+      if (initialSelectedDebt.monthly_installment > 0) {
+        setPaymentPrincipalStr(new Intl.NumberFormat('id-ID').format(initialSelectedDebt.monthly_installment));
+      }
+    }
+  }, [initialSelectedDebt]);
 
   if (activeModal !== 'debt') return null;
 
@@ -86,8 +96,8 @@ export function DebtFormModal() {
       });
 
       setActiveModal(null);
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan data cicilan');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan data cicilan');
     } finally {
       setIsSubmitting(false);
     }
@@ -129,8 +139,8 @@ export function DebtFormModal() {
       });
 
       setActiveModal(null);
-    } catch (err: any) {
-      setError(err?.message || 'Gagal mencatat pembayaran cicilan');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal mencatat pembayaran cicilan');
     } finally {
       setIsSubmitting(false);
     }
@@ -299,6 +309,33 @@ export function DebtFormModal() {
                     max="31"
                     value={dueDay}
                     onChange={(e) => setDueDay(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground">Rekening Pembayaran Default</label>
+                  <select
+                    value={paymentAccountId}
+                    onChange={(e) => setPaymentAccountId(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs"
+                  >
+                    <option value="">-- Tanpa Rekening Khusus --</option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground">Tanggal Mulai Pinjaman</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-mono"
                   />
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { PiggyBank, AlertTriangle, CheckCircle2, AlertOctagon, Plus, Edit2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AlertTriangle, CheckCircle2, AlertOctagon, Pencil, Trash2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { calculateBudgetUtilization } from '../../lib/finance/calculations';
@@ -13,11 +13,12 @@ import { Badge } from '../../components/ui/badge';
 import { generateUUID } from '../../lib/utils';
 
 export default function BudgetsPage() {
-  const { categories, transactions, budgets, saveBudget, user, accounts } = useFinance();
+  const { categories, transactions, budgets, saveBudget, deleteBudget, user, accounts } = useFinance();
 
   const [selectedCatId, setSelectedCatId] = useState('');
   const [limitStr, setLimitStr] = useState('');
   const [editingBudget, setEditingBudget] = useState<{ catId: string; limit: number } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const currentMonthYear = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
@@ -45,6 +46,7 @@ export default function BudgetsPage() {
 
     return {
       category: cat,
+      existingBudget,
       limit,
       spent,
       stats,
@@ -60,16 +62,33 @@ export default function BudgetsPage() {
     if (!selectedCatId || rawLimit <= 0) return;
 
     const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+    const existing = budgets.find(
+      (b) => b.category_id === selectedCatId && b.month_year === currentMonthYear
+    );
+
     await saveBudget({
-      id: generateUUID(),
+      id: existing ? existing.id : generateUUID(),
       user_id: activeUid,
       category_id: selectedCatId,
       month_year: currentMonthYear,
       monthly_limit: rawLimit,
-      created_at: new Date().toISOString(),
+      created_at: existing ? existing.created_at : new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
+    setSelectedCatId('');
+    setLimitStr('');
+    setEditingBudget(null);
+  };
+
+  const handleStartEdit = (catId: string, currentLimit: number) => {
+    setSelectedCatId(catId);
+    setLimitStr(currentLimit > 0 ? new Intl.NumberFormat('id-ID').format(currentLimit) : '');
+    setEditingBudget({ catId, limit: currentLimit });
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleCancelEdit = () => {
     setSelectedCatId('');
     setLimitStr('');
     setEditingBudget(null);
@@ -122,10 +141,20 @@ export default function BudgetsPage() {
       </div>
 
       {/* Set/Edit Budget Form */}
-      <Card className="p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-foreground">
-          {editingBudget ? 'Ubah Batas Anggaran Kategori' : 'Tetapkan Batas Anggaran Kategori'}
-        </h3>
+      <Card ref={formRef} className="p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">
+            {editingBudget ? 'Ubah Batas Anggaran Kategori' : 'Tetapkan Batas Anggaran Kategori'}
+          </h3>
+          {editingBudget && (
+            <button
+              onClick={handleCancelEdit}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Batal Ubah
+            </button>
+          )}
+        </div>
         <form onSubmit={handleSaveBudget} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="block text-xs font-semibold text-muted-foreground">Kategori Pengeluaran</label>
@@ -160,19 +189,31 @@ export default function BudgetsPage() {
             />
           </div>
 
-          <Button
-            type="submit"
-            className="font-bold shadow-sm"
-          >
-            Simpan Anggaran
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              className="font-bold shadow-sm"
+            >
+              {editingBudget ? 'Perbarui Anggaran' : 'Simpan Anggaran'}
+            </Button>
+            {editingBudget && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelEdit}
+                className="text-xs"
+              >
+                Batal
+              </Button>
+            )}
+          </div>
         </form>
       </Card>
 
       {/* Budget Utilization List */}
       <div className="space-y-3">
         {budgetItems.map((item) => {
-          const { category, limit, spent, stats } = item;
+          const { category, existingBudget, limit, spent, stats } = item;
 
           return (
             <Card
@@ -192,23 +233,53 @@ export default function BudgetsPage() {
                   </div>
                 </div>
 
-                <div className="text-right">
-                  {stats.isOverBudget ? (
-                    <Badge variant="destructive" className="gap-1 text-xs">
-                      <AlertOctagon className="h-3 w-3" />
-                      Over Budget!
-                    </Badge>
-                  ) : stats.status === 'warning' ? (
-                    <Badge variant="warning" className="gap-1 text-xs">
-                      <AlertTriangle className="h-3 w-3" />
-                      Mendekati Batas ({stats.percentage.toFixed(0)}%)
-                    </Badge>
-                  ) : (
-                    <Badge variant="success" className="gap-1 text-xs">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Aman ({stats.percentage.toFixed(0)}%)
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    {stats.isOverBudget ? (
+                      <Badge variant="destructive" className="gap-1 text-xs">
+                        <AlertOctagon className="h-3 w-3" />
+                        Over Budget!
+                      </Badge>
+                    ) : stats.status === 'warning' ? (
+                      <Badge variant="warning" className="gap-1 text-xs">
+                        <AlertTriangle className="h-3 w-3" />
+                        Mendekati Batas ({stats.percentage.toFixed(0)}%)
+                      </Badge>
+                    ) : (
+                      <Badge variant="success" className="gap-1 text-xs">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Aman ({stats.percentage.toFixed(0)}%)
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Edit and Delete Actions */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleStartEdit(category.id, limit)}
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      title="Ubah Anggaran"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    {existingBudget && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(`Hapus plafon anggaran untuk kategori "${category.name}"?`)) {
+                            deleteBudget(existingBudget.id);
+                          }
+                        }}
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        title="Hapus / Reset Anggaran"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -1,19 +1,10 @@
 'use client';
 
 import React from 'react';
-import {
-  BarChart3,
-  Printer,
-  Download,
-  TrendingUp,
-  Sparkles,
-  PieChart as PieIcon,
-  CheckCircle2,
-} from 'lucide-react';
+import { BarChart3, Printer } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatIDR, formatPercentage } from '../../lib/finance/formatters';
+import { formatIDR } from '../../lib/finance/formatters';
 import dynamic from 'next/dynamic';
-import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 
@@ -33,11 +24,8 @@ export default function ReportsPage() {
     monthlyExpenses,
     monthlySavings,
     savingsRate,
-    positions,
     categories,
     transactions,
-    debts,
-    receivables,
   } = useFinance();
 
   // Category expense breakdown

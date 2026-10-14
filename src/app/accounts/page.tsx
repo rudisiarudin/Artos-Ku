@@ -11,7 +11,6 @@ import {
   Smartphone,
   Pencil,
   Trash2,
-  AlertTriangle,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';

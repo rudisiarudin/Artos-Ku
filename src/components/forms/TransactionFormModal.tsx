@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, ArrowDownRight, ArrowUpRight, ArrowLeftRight, SlidersHorizontal } from 'lucide-react';
+import { X, ArrowDownRight, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { TransactionType } from '../../lib/db/types';
 import { formatIDR } from '../../lib/finance/formatters';
@@ -57,10 +57,12 @@ export function TransactionFormModal() {
     setError('');
 
     try {
-      const activeUid = user?.id || accounts[0]?.user_id || 'user_local';
+      const isToday = date === new Date().toISOString().split('T')[0];
+      const txDate = isToday ? new Date().toISOString() : new Date(`${date}T12:00:00`).toISOString();
+      const activeUid = user?.id || accounts[0]?.user_id || 'default-user';
       await addTransaction({
         user_id: activeUid,
-        date: new Date(date).toISOString(),
+        date: txDate,
         type,
         amount: rawAmount,
         source_account_id: sourceAccountId || accounts[0]?.id || null,
@@ -77,8 +79,8 @@ export function TransactionFormModal() {
       setAmountStr('');
       setDescription('');
       setNotes('');
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan transaksi');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan transaksi');
     } finally {
       setIsSubmitting(false);
     }

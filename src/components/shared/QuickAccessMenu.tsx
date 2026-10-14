@@ -13,7 +13,6 @@ import {
   Settings,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { cn } from '../../lib/utils';
 
 interface QuickAccessItem {
   id: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, ArrowRight, TrendingUp, CreditCard, ArrowLeftRight } from 'lucide-react';
+import { Plus, TrendingUp, CreditCard, ArrowLeftRight } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { cn } from '../../lib/utils';
 

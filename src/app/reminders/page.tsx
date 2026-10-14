@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bell, CheckCircle2, Clock, AlertTriangle, CreditCard, HandCoins } from 'lucide-react';
+import { CheckCircle2, Clock } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIndonesianDate } from '../../lib/finance/formatters';
 import { Card } from '../../components/ui/card';
@@ -43,7 +43,7 @@ export default function RemindersPage() {
                       onClick={() => toggleReminder(rem.id)}
                       className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-lg border transition ${
                         rem.is_completed
-                          ? 'border-emerald-500 bg-emerald-500 text-white'
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
                           : 'border-border bg-background hover:border-primary'
                       }`}
                     >
@@ -77,6 +77,11 @@ export default function RemindersPage() {
                             ? 'Piutang'
                             : 'Anggaran'}
                         </Badge>
+                        {isDue && !rem.is_completed && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            Terlewat
+                          </Badge>
+                        )}
                       </div>
 
                       {rem.message && (

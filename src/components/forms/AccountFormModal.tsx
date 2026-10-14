@@ -77,8 +77,8 @@ export function AccountFormModal() {
       });
 
       handleClose();
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan rekening');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan rekening');
     } finally {
       setIsSubmitting(false);
     }

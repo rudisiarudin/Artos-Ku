@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { getSyncQueue, removeSyncQueueItem, clearSyncQueue, addToSyncQueue } from './indexeddb';
+import { getSyncQueue, removeSyncQueueItem, clearSyncQueue } from './indexeddb';
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_UUID_MAP } from './seedData';
 import { isValidUUID, generateUUID } from '../utils';
 
@@ -119,14 +119,14 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
         record.user_id = activeUserId;
 
         // Ensure record has a valid UUID
-        if (!isValidUUID(record.id)) {
+        if (!isValidUUID(typeof record.id === 'string' ? record.id : null)) {
           record.id = generateUUID();
         }
 
         if (action === 'delete') {
-          const { error } = await supabase.from(table).delete().eq('id', record.id);
+          const { error } = await supabase.from(table).delete().eq('id', record.id as string);
           if (error && table === 'assets') {
-            await supabase.from('investment_assets').delete().eq('id', record.id);
+            await supabase.from('investment_assets').delete().eq('id', record.id as string);
           }
           await removeSyncQueueItem(item.id);
           continue;
@@ -152,7 +152,7 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           if (error) console.warn('[SyncEngine] accounts upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'assets') {
-          const assetPayload: any = {
+          const assetPayload: Record<string, unknown> = {
             id: record.id,
             user_id: activeUserId,
             ticker: record.ticker,
@@ -178,29 +178,41 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           if (error) console.warn('[SyncEngine] assets upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'transactions') {
-          const txType = record.type || record.kind || 'expense';
-          const txDesc = record.description || record.name || 'Transaksi';
-          const txPayload: any = {
+          const txType = (record.type as string) || 'expense';
+          const txDesc = (record.description as string) || (record.name as string) || 'Transaksi';
+          const txPayload: Record<string, unknown> = {
             id: record.id,
             user_id: activeUserId,
             date: record.date || new Date().toISOString(),
             type: txType,
-            kind: txType,
-            name: txDesc,
             description: txDesc,
             amount: Number(record.amount || 0),
-            source_account_id: isValidUUID(record.source_account_id) ? record.source_account_id : null,
-            destination_account_id: isValidUUID(record.destination_account_id) ? record.destination_account_id : null,
-            category_id: normalizeCategoryId(record.category_id),
+            source_account_id: isValidUUID(record.source_account_id as string) ? record.source_account_id : null,
+            destination_account_id: isValidUUID(record.destination_account_id as string) ? record.destination_account_id : null,
+            category_id: normalizeCategoryId(record.category_id as string),
             payment_method: record.payment_method || 'transfer',
             tags: Array.isArray(record.tags) ? record.tags : [],
-            reference_id: normalizeReferenceId(record.reference_id),
+            reference_id: normalizeReferenceId(record.reference_id as string),
           };
           if (record.notes) {
             txPayload.notes = record.notes;
           }
 
           let { error } = await supabase.from('transactions').upsert(txPayload);
+          // If foreign key constraint failed on category_id or account IDs, retry with null
+          if (error && (error.message.includes('foreign key') || error.message.includes('violates foreign key constraint'))) {
+            if (error.message.includes('category_id')) {
+              txPayload.category_id = null;
+            }
+            if (error.message.includes('source_account_id')) {
+              txPayload.source_account_id = null;
+            }
+            if (error.message.includes('destination_account_id')) {
+              txPayload.destination_account_id = null;
+            }
+            const retryRes = await supabase.from('transactions').upsert(txPayload);
+            error = retryRes.error;
+          }
           // If Supabase schema does not have 'notes' column, remove and retry
           if (error && (error.message.includes("'notes'") || error.message.includes('notes'))) {
             delete txPayload.notes;
@@ -210,6 +222,8 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           if (error) console.warn('[SyncEngine] transactions upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'receivables') {
+          const loanDateStr = typeof record.loan_date === 'string' ? record.loan_date : new Date().toISOString();
+          const dueDateStr = typeof record.due_date === 'string' ? record.due_date : new Date().toISOString();
           const recPayload = {
             id: record.id,
             user_id: activeUserId,
@@ -218,16 +232,17 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             principal_amount: Number(record.principal_amount || 0),
             current_balance: Number(record.current_balance || 0),
             interest_rate: Number(record.interest_rate || 0),
-            loan_date: record.loan_date ? record.loan_date.split('T')[0] : new Date().toISOString().split('T')[0],
-            due_date: record.due_date ? record.due_date.split('T')[0] : new Date().toISOString().split('T')[0],
+            loan_date: loanDateStr.split('T')[0],
+            due_date: dueDateStr.split('T')[0],
             status: record.status || 'unpaid',
-            account_id: isValidUUID(record.account_id) ? record.account_id : null,
+            account_id: isValidUUID(record.account_id as string) ? record.account_id : null,
             purpose: record.purpose || null,
           };
           const { error } = await supabase.from('receivables').upsert(recPayload);
           if (error) console.warn('[SyncEngine] receivables upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else if (table === 'debts') {
+          const startDateStr = typeof record.start_date === 'string' ? record.start_date : new Date().toISOString();
           const debtPayload = {
             id: record.id,
             user_id: activeUserId,
@@ -242,9 +257,9 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
             monthly_installment: Number(record.monthly_installment || 0),
             due_day: Number(record.due_day || 1),
             remaining_installments: Number(record.remaining_installments || 0),
-            payment_account_id: isValidUUID(record.payment_account_id) ? record.payment_account_id : null,
+            payment_account_id: isValidUUID(record.payment_account_id as string) ? record.payment_account_id : null,
             status: record.status || 'active',
-            start_date: record.start_date ? record.start_date.split('T')[0] : new Date().toISOString().split('T')[0],
+            start_date: startDateStr.split('T')[0],
           };
           const { error } = await supabase.from('debts').upsert(debtPayload);
           if (error) console.warn('[SyncEngine] debts upsert notice:', error.message);
@@ -280,6 +295,47 @@ export async function processSyncQueue(fallbackUserId?: string): Promise<number>
           };
           const { error } = await supabase.from('debt_payments').upsert(debtPayPayload);
           if (error) console.warn('[SyncEngine] debt_payments upsert notice:', error.message);
+          await removeSyncQueueItem(item.id);
+        } else if (table === 'trades' || table === 'investment_trades') {
+          const tradePayload = {
+            id: record.id,
+            user_id: activeUserId,
+            asset_id: record.asset_id,
+            trade_type: record.trade_type || 'buy',
+            trade_date: record.trade_date || record.date || new Date().toISOString(),
+            lots: record.lots !== undefined && record.lots !== null ? Number(record.lots) : null,
+            shares_or_units: Number(record.shares_or_units || 0),
+            price_per_unit: Number(record.price_per_unit || 0),
+            fee: Number(record.fee || 0),
+            total_amount: Number(record.total_amount || 0),
+            realized_pl: record.realized_pl !== undefined && record.realized_pl !== null ? Number(record.realized_pl) : null,
+            account_id: isValidUUID(record.account_id as string) ? record.account_id : null,
+            notes: record.notes || null,
+          };
+          let { error } = await supabase.from('investment_trades').upsert(tradePayload);
+          if (error) {
+            const retryRes = await supabase.from('trades').upsert(tradePayload);
+            error = retryRes.error;
+          }
+          if (error) console.warn('[SyncEngine] trades upsert notice:', error.message);
+          await removeSyncQueueItem(item.id);
+        } else if (table === 'budgets') {
+          const normCatId = normalizeCategoryId(record.category_id as string);
+          if (!normCatId) {
+            await removeSyncQueueItem(item.id);
+            continue;
+          }
+          const budgetPayload = {
+            id: record.id,
+            user_id: activeUserId,
+            category_id: normCatId,
+            month_year: (record.month_year as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+            monthly_limit: Number(record.monthly_limit || 0),
+            created_at: (record.created_at as string) || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          const { error } = await supabase.from('budgets').upsert(budgetPayload, { onConflict: 'user_id, category_id, month_year' });
+          if (error) console.warn('[SyncEngine] budgets upsert notice:', error.message);
           await removeSyncQueueItem(item.id);
         } else {
           const { error } = await supabase.from(table).upsert(record);

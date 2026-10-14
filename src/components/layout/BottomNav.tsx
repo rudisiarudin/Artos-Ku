@@ -11,7 +11,6 @@ import {
   Plus,
   BarChart3,
   PiggyBank,
-  MoreHorizontal,
   ArrowLeftRight,
   HandCoins,
   CreditCard,

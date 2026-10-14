@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, HandCoins, CheckCircle2, ShieldCheck, ArrowDownRight } from 'lucide-react';
+import { X, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn, generateUUID } from '../../lib/utils';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Card } from '../ui/card';
 
 export function ReceivableFormModal() {
   const {
@@ -61,7 +59,7 @@ export function ReceivableFormModal() {
         setSelectedRecId(activeReceivables[0].id);
       }
     }
-  }, [selectedReceivable, isModalOpen]);
+  }, [selectedReceivable, isModalOpen, activeReceivables]);
 
   if (!isModalOpen) return null;
 
@@ -127,8 +125,8 @@ export function ReceivableFormModal() {
       }
 
       handleClose();
-    } catch (err: any) {
-      setError(err?.message || 'Gagal mencatat piutang');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal mencatat piutang');
     } finally {
       setIsSubmitting(false);
     }
@@ -166,8 +164,8 @@ export function ReceivableFormModal() {
       });
 
       handleClose();
-    } catch (err: any) {
-      setError(err?.message || 'Gagal mencatat pelunasan piutang');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal mencatat pelunasan piutang');
     } finally {
       setIsSubmitting(false);
     }

@@ -1,16 +1,15 @@
 'use client';
 
 import React from 'react';
-import { CreditCard, Plus, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { CreditCard, Plus, Trash2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatIDR, formatIndonesianDate } from '../../lib/finance/formatters';
-import { CurrencyDisplay } from '../../components/shared/CurrencyDisplay';
+import { formatIDR } from '../../lib/finance/formatters';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 
 export default function DebtsPage() {
-  const { debts, netWorthData, setActiveModal } = useFinance();
+  const { debts, netWorthData, setActiveModal, setSelectedDebt, deleteDebt } = useFinance();
 
   const totalOutstanding = netWorthData.totalDebts;
   const activeDebts = debts.filter((d) => d.status !== 'paid_off');
@@ -18,6 +17,16 @@ export default function DebtsPage() {
     (sum, d) => sum + Number(d.monthly_installment || 0),
     0
   );
+
+  const handleOpenCreate = () => {
+    setSelectedDebt(null);
+    setActiveModal('debt');
+  };
+
+  const handleOpenPayment = (debt: (typeof debts)[0]) => {
+    setSelectedDebt(debt);
+    setActiveModal('debt');
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -33,11 +42,11 @@ export default function DebtsPage() {
         </div>
 
         <Button
-          onClick={() => setActiveModal('debt')}
+          onClick={handleOpenCreate}
           className="w-full sm:w-auto gap-1.5 text-xs sm:text-sm font-bold shadow-sm h-10 justify-center"
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span>Tambah / Bayar Cicilan</span>
+          <span>Tambah Cicilan Baru</span>
         </Button>
       </div>
 
@@ -109,14 +118,42 @@ export default function DebtsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:items-end border-t border-border/40 pt-2 sm:border-0 sm:pt-0">
-                  <span className="text-xs text-muted-foreground">Cicilan Bulanan:</span>
-                  <div className="font-mono text-base font-bold text-foreground">
-                    {formatIDR(debt.monthly_installment)}
+                <div className="flex flex-col sm:items-end border-t border-border/40 pt-2 sm:border-0 sm:pt-0 gap-1.5">
+                  <div className="text-right sm:text-right">
+                    <span className="text-xs text-muted-foreground block">Cicilan Bulanan:</span>
+                    <div className="font-mono text-base font-bold text-foreground">
+                      {formatIDR(debt.monthly_installment)}
+                    </div>
+                    <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold block">
+                      Sisa Pokok: {formatIDR(debt.current_principal)}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
-                    Sisa Pokok: {formatIDR(debt.current_principal)}
-                  </span>
+
+                  <div className="flex items-center gap-1.5 pt-1">
+                    {!isPaidOff && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenPayment(debt)}
+                        className="h-8 text-xs font-semibold px-3 cursor-pointer"
+                      >
+                        Bayar Angsuran
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(`Hapus kewajiban cicilan "${debt.debt_name}"?`)) {
+                          deleteDebt(debt.id);
+                        }
+                      }}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive cursor-pointer"
+                      title="Hapus Cicilan"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 

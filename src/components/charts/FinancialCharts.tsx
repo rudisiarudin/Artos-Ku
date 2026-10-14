@@ -59,7 +59,7 @@ export function CashFlowBarChart({ income, expenses, savings }: CashFlowChartPro
           />
           <Tooltip
             cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
-            formatter={(val: any) => [formatIDR(Number(val || 0)), 'Nominal']}
+            formatter={(val: unknown) => [formatIDR(Number(val || 0)), 'Nominal']}
             contentStyle={{
               backgroundColor: 'hsl(var(--popover))',
               borderColor: 'hsl(var(--border))',
@@ -137,7 +137,7 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(val: any) => [formatIDR(Number(val || 0)), 'Pengeluaran']}
+            formatter={(val: unknown) => [formatIDR(Number(val || 0)), 'Pengeluaran']}
             contentStyle={{
               backgroundColor: 'hsl(var(--popover))',
               borderColor: 'hsl(var(--border))',

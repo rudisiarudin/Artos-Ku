@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Wallet,
-  TrendingUp,
   HandCoins,
   CreditCard,
   ArrowUpRight,
@@ -16,16 +15,12 @@ import {
   Eye,
   EyeOff,
   PlusCircle,
-  Utensils,
-  ShoppingBag,
-  Car,
   Receipt,
-  Briefcase,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatIDR, formatIndonesianDate } from '../lib/finance/formatters';
+import { Transaction } from '../lib/db/types';
 import { StatCard } from '../components/shared/StatCard';
 import dynamic from 'next/dynamic';
 import { CurrencyDisplay } from '../components/shared/CurrencyDisplay';
@@ -35,6 +30,7 @@ import { Card } from '../components/ui/card';
 import { PhysicalWalletDeck } from '../components/cards/PhysicalWalletDeck';
 import { QuickActionBar } from '../components/shared/QuickActionBar';
 import { QuickAccessMenu } from '../components/shared/QuickAccessMenu';
+import { cn } from '../lib/utils';
 
 const CashFlowBarChart = dynamic(
   () => import('../components/charts/FinancialCharts').then((mod) => mod.CashFlowBarChart),
@@ -130,7 +126,7 @@ export default function DashboardPage() {
   };
 
   // Helper to pick category icon and colors
-  const getTransactionVisuals = (tx: any) => {
+  const getTransactionVisuals = (tx: Transaction) => {
     const isIncome =
       tx.type === 'income' ||
       tx.type === 'receivable_repayment' ||
@@ -647,6 +643,120 @@ export default function DashboardPage() {
                 <CurrencyDisplay amount={acc.current_balance} size="md" />
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Recent Transactions History (Riwayat Transaksi Terbaru) */}
+        <Card className="p-5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-primary">
+                <Receipt className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Riwayat Transaksi Terbaru</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  {transactions.length > 0
+                    ? `Menampilkan ${Math.min(5, transactions.length)} transaksi terbaru`
+                    : 'Belum ada riwayat transaksi'}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/transactions"
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              <span>Lihat Semua ({transactions.length})</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="mt-4">
+            {recentTransactions.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground mb-3">
+                  <Receipt className="h-6 w-6" />
+                </div>
+                <p className="text-xs font-semibold text-foreground">Belum ada riwayat transaksi</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Setiap transaksi pemasukan, pengeluaran, atau transfer akan langsung muncul di sini.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveModal('transaction')}
+                  className="mt-3 text-xs"
+                >
+                  + Catat Transaksi Sekarang
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {recentTransactions.map((tx) => {
+                  const visuals = getTransactionVisuals(tx);
+                  const Icon = visuals.icon;
+                  const srcAcc = accounts.find((a) => a.id === tx.source_account_id);
+                  const dstAcc = accounts.find((a) => a.id === tx.destination_account_id);
+                  const cat = categories.find((c) => c.id === tx.category_id);
+                  const isIncome = tx.type === 'income' || tx.type === 'receivable_repayment' || tx.type === 'investment_sell';
+                  const isExpense = tx.type === 'expense' || tx.type === 'installment_payment' || tx.type === 'receivable_disbursement' || tx.type === 'investment_buy';
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between gap-3 py-3 transition hover:bg-muted/20 px-2 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={cn(
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+                            visuals.bg
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs sm:text-sm font-bold text-foreground truncate">
+                            {tx.description}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
+                            <span>{formatIndonesianDate(tx.date, 'time')}</span>
+                            {cat && (
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                                {cat.name}
+                              </span>
+                            )}
+                            <span className="hidden sm:inline">
+                              • {srcAcc?.name || 'Rekening'}
+                              {dstAcc ? ` → ${dstAcc.name}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div
+                          className={cn(
+                            'font-mono text-xs sm:text-sm font-bold',
+                            isIncome
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : isExpense
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-foreground'
+                          )}
+                        >
+                          {isIncome ? '+' : isExpense ? '-' : ''}
+                          {formatIDR(tx.amount)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground capitalize">
+                          {tx.payment_method || tx.type}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </Card>
 

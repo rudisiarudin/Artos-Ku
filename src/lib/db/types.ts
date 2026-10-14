@@ -231,7 +231,7 @@ export interface SyncQueueItem {
   id: string;
   action: 'insert' | 'update' | 'delete';
   table: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   status: 'pending' | 'syncing' | 'failed';
   error?: string;

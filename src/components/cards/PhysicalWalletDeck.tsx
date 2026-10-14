@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Wifi, Wallet, ChevronLeft, ChevronRight, Eye, EyeOff, Plus, CreditCard } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Wifi, ChevronLeft, ChevronRight, Eye, EyeOff, Plus } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR } from '../../lib/finance/formatters';
 import { cn } from '../../lib/utils';

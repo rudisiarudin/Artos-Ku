@@ -7,23 +7,18 @@ import {
   Mail,
   User,
   ArrowRight,
-  Sparkles,
   Eye,
   EyeOff,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   KeyRound,
-  HelpCircle,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../lib/db/supabase';
 import { storage } from '../../lib/db/storage';
-import { useFinance } from '../../context/FinanceContext';
 import { BrandLogo } from '../shared/BrandLogo';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent } from '../ui/card';
-import { Badge } from '../ui/badge';
 
 interface AuthFormProps {
   initialMode?: 'login' | 'register';
@@ -32,7 +27,6 @@ interface AuthFormProps {
 function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { hasCompletedOnboarding } = useFinance();
   const [isSignUp, setIsSignUp] = useState(initialMode === 'register');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -165,8 +159,8 @@ function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
       } else {
         setError('Koneksi Supabase belum terkonfigurasi pada file .env.');
       }
-    } catch (err: any) {
-      setError(translateAuthError(err?.message || 'Gagal memproses autentikasi.'));
+    } catch (err: unknown) {
+      setError(translateAuthError((err as Error)?.message || 'Gagal memproses autentikasi.'));
     } finally {
       setIsLoading(false);
     }
@@ -201,8 +195,8 @@ function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
         setError('Koneksi Supabase belum terkonfigurasi pada file .env.');
         setIsLoading(false);
       }
-    } catch (err: any) {
-      setError(translateAuthError(err?.message || 'Gagal autentikasi dengan Google.'));
+    } catch (err: unknown) {
+      setError(translateAuthError((err as Error)?.message || 'Gagal autentikasi dengan Google.'));
       setIsLoading(false);
     }
   };
@@ -227,8 +221,8 @@ function AuthFormInner({ initialMode = 'login' }: AuthFormProps) {
       } else {
         setError('Supabase Auth belum diatur pada environment project.');
       }
-    } catch (err: any) {
-      setError(err?.message || 'Gagal mengirim email reset password.');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal mengirim email reset password.');
     } finally {
       setIsLoading(false);
     }

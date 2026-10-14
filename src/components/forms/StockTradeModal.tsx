@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, TrendingUp, DollarSign } from 'lucide-react';
+import { X, TrendingUp } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR, formatStockQuantity } from '../../lib/finance/formatters';
 import { lotsToShares } from '../../lib/finance/calculations';
@@ -86,8 +86,8 @@ export function StockTradeModal() {
       });
 
       setActiveModal(null);
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan transaksi saham');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan transaksi saham');
     } finally {
       setIsSubmitting(false);
     }
@@ -257,6 +257,29 @@ export function StockTradeModal() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Date & Notes */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground">Tanggal Transaksi</label>
+              <input
+                type="date"
+                value={tradeDate}
+                onChange={(e) => setTradeDate(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground">Catatan (Opsional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Averaging Down"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs"
+              />
             </div>
           </div>
 

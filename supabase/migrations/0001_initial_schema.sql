@@ -191,6 +191,24 @@ CREATE TABLE IF NOT EXISTS public.investment_trades (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- Backward-compatibility / alias table for trades
+CREATE TABLE IF NOT EXISTS public.trades (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL,
+    trade_type TEXT NOT NULL CHECK (trade_type IN ('buy', 'sell')),
+    trade_date TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    lots NUMERIC(15, 4),
+    shares_or_units NUMERIC(18, 8) NOT NULL CHECK (shares_or_units > 0),
+    price_per_unit NUMERIC(18, 6) NOT NULL CHECK (price_per_unit > 0),
+    fee NUMERIC(15, 2) DEFAULT 0.00 NOT NULL,
+    total_amount NUMERIC(15, 2) NOT NULL,
+    realized_pl NUMERIC(15, 2) DEFAULT 0.00,
+    account_id UUID REFERENCES public.accounts(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 -- 9. DIVIDENDS
 CREATE TABLE IF NOT EXISTS public.dividends (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -315,7 +333,9 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recurring_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investment_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investment_trades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dividends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receivables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receivable_payments ENABLE ROW LEVEL SECURITY;
@@ -333,7 +353,7 @@ BEGIN
         SELECT tablename FROM pg_tables WHERE schemaname = 'public' 
         AND tablename IN (
             'profiles', 'accounts', 'categories', 'transactions', 'budgets',
-            'recurring_transactions', 'investment_assets', 'investment_trades',
+            'recurring_transactions', 'investment_assets', 'assets', 'investment_trades', 'trades',
             'dividends', 'receivables', 'receivable_payments', 'debts',
             'debt_payments', 'reminders', 'audit_logs'
         )

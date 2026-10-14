@@ -6,8 +6,6 @@ import { DesktopSidebar } from './DesktopSidebar';
 import { AppHeader } from './AppHeader';
 import { BottomNav } from './BottomNav';
 import { TransactionFormModal } from '../forms/TransactionFormModal';
-import { StockTradeModal } from '../forms/StockTradeModal';
-import { CryptoTradeModal } from '../forms/CryptoTradeModal';
 import { ReceivableFormModal } from '../forms/ReceivableFormModal';
 import { DebtFormModal } from '../forms/DebtFormModal';
 import { AccountFormModal } from '../forms/AccountFormModal';
@@ -49,8 +47,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Global Financial Modals */}
       <TransactionFormModal />
-      <StockTradeModal />
-      <CryptoTradeModal />
       <ReceivableFormModal />
       <DebtFormModal />
       <AccountFormModal />

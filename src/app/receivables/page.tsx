@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { HandCoins, Plus, Phone, Trash2, Calendar, ShieldCheck, FolderOpen } from 'lucide-react';
+import { HandCoins, Plus, Phone, Trash2, FolderOpen } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatIDR, formatIndonesianDate } from '../../lib/finance/formatters';
+import { Receivable } from '../../lib/db/types';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -15,7 +16,7 @@ export default function ReceivablesPage() {
   const totalOutstanding = netWorthData.totalReceivables;
   const activeCount = receivables.filter((r) => r.status !== 'paid').length;
 
-  const handleOpenPayment = (rec: any) => {
+  const handleOpenPayment = (rec: Receivable) => {
     setSelectedReceivable(rec);
     setActiveModal('receivable');
   };

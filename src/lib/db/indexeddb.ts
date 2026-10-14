@@ -4,7 +4,7 @@ import { SyncQueueItem } from './types';
 interface ArtosKuDB extends DBSchema {
   keyval: {
     key: string;
-    value: any;
+    value: unknown;
   };
   sync_queue: {
     key: string;
@@ -12,7 +12,7 @@ interface ArtosKuDB extends DBSchema {
   };
   drafts: {
     key: string;
-    value: { id: string; formType: string; data: any; updatedAt: number };
+    value: { id: string; formType: string; data: unknown; updatedAt: number };
   };
 }
 
@@ -44,7 +44,7 @@ export function getDB(): Promise<IDBPDatabase<ArtosKuDB>> {
   return dbPromise;
 }
 
-export async function idbGet<T = any>(key: string): Promise<T | undefined> {
+export async function idbGet<T = unknown>(key: string): Promise<T | undefined> {
   try {
     const db = await getDB();
     return (await db.get('keyval', key)) as T;
@@ -53,7 +53,7 @@ export async function idbGet<T = any>(key: string): Promise<T | undefined> {
   }
 }
 
-export async function idbSet(key: string, val: any): Promise<void> {
+export async function idbSet<T = unknown>(key: string, val: T): Promise<void> {
   try {
     const db = await getDB();
     await db.put('keyval', val, key);
@@ -62,11 +62,15 @@ export async function idbSet(key: string, val: any): Promise<void> {
   }
 }
 
-export async function addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'status'>): Promise<void> {
+export async function addToSyncQueue(
+  item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'status' | 'data'> & { data: unknown }
+): Promise<void> {
   try {
     const db = await getDB();
     const queueItem: SyncQueueItem = {
-      ...item,
+      action: item.action,
+      table: item.table,
+      data: item.data as Record<string, unknown>,
       id: `sync_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       timestamp: Date.now(),
       status: 'pending',

@@ -83,8 +83,8 @@ export function CryptoTradeModal() {
       });
 
       setActiveModal(null);
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan transaksi crypto');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan transaksi crypto');
     } finally {
       setIsSubmitting(false);
     }
@@ -249,6 +249,29 @@ export function CryptoTradeModal() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Date & Notes */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground">Tanggal Transaksi</label>
+              <input
+                type="date"
+                value={tradeDate}
+                onChange={(e) => setTradeDate(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground">Catatan (Opsional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Beli DCA"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-xs"
+              />
             </div>
           </div>
 

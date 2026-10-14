@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/db/supabase';
 import { storage } from '../../../lib/db/storage';
 import { BrandLogo } from '../../../components/shared/BrandLogo';
@@ -35,7 +36,7 @@ function CallbackContent() {
           localStorage.removeItem('artosku_auth_intent');
         }
 
-        const handleUserSession = async (currentSession: any) => {
+        const handleUserSession = async (currentSession: Session | null) => {
           if (!currentSession?.user) {
             router.push('/login');
             return;
@@ -123,9 +124,10 @@ function CallbackContent() {
           subscription.unsubscribe();
           clearTimeout(timer);
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
-          setErrorMessage(err?.message || 'Gagal memproses autentikasi Google.');
+          const message = err instanceof Error ? err.message : 'Gagal memproses autentikasi Google.';
+          setErrorMessage(message);
           setTimeout(() => router.push('/login'), 2500);
         }
       }

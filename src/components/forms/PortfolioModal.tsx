@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, TrendingUp, RefreshCw, ShieldCheck } from 'lucide-react';
+import { X, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { AssetType, InvestmentAsset } from '../../lib/db/types';
 import { formatIDR, formatPercentage } from '../../lib/finance/formatters';
@@ -9,7 +9,6 @@ import { lotsToShares, sharesToLots } from '../../lib/finance/calculations';
 import { generateUUID, cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Card } from '../ui/card';
 
 const POPULAR_STOCKS: Record<string, string> = {
   BBCA: 'Bank Central Asia Tbk',
@@ -236,8 +235,8 @@ export function PortfolioModal() {
 
       await saveAsset(assetPayload);
       handleClose();
-    } catch (err: any) {
-      setError(err?.message || 'Gagal menyimpan catatan portofolio');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Gagal menyimpan catatan portofolio');
     } finally {
       setIsSubmitting(false);
     }
@@ -441,6 +440,7 @@ export function PortfolioModal() {
                     : priceSource === 'indodax'
                     ? 'Indodax (Live)'
                     : 'Pasar Terkini'}
+                  {priceChange24h !== 0 ? ` (${priceChange24h > 0 ? '+' : ''}${priceChange24h.toFixed(1)}%)` : ''}
                 </Badge>
               ) : null}
             </div>
